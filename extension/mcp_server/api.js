@@ -215,18 +215,19 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
       {
         name: "updateMessage",
         title: "Update Message",
-        description: "Update a message's read/flagged state and optionally move it to another folder or to Trash.",
+        description: "Update one or more messages' read/flagged state and optionally move them to another folder or to Trash. Supply messageId for a single message or messageIds for bulk operations.",
         inputSchema: {
           type: "object",
           properties: {
-            messageId: { type: "string", description: "The message ID (from searchMessages results)" },
+            messageId: { type: "string", description: "A single message ID (from searchMessages results). Use messageId or messageIds, not both." },
+            messageIds: { type: "array", items: { type: "string" }, description: "Array of message IDs for bulk operations. Use messageId or messageIds, not both." },
             folderPath: { type: "string", description: "The folder URI path (from searchMessages results)" },
             read: { type: "boolean", description: "Set to true/false to mark read/unread (optional)" },
             flagged: { type: "boolean", description: "Set to true/false to flag/unflag (optional)" },
             moveTo: { type: "string", description: "Destination folder URI (optional). Cannot be used with trash." },
             trash: { type: "boolean", description: "Set to true to move message to Trash (optional). Cannot be used with moveTo." },
           },
-          required: ["messageId", "folderPath"],
+          required: ["folderPath"],
         },
       },
       {
@@ -1759,10 +1760,20 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               }
             }
 
-            function updateMessage(messageId, folderPath, read, flagged, moveTo, trash) {
+            function updateMessage(messageId, messageIds, folderPath, read, flagged, moveTo, trash) {
               try {
-                if (typeof messageId !== "string" || !messageId) {
-                  return { error: "messageId must be a non-empty string" };
+                // Normalize to an array of IDs
+                if (typeof messageIds === "string") {
+                  try { messageIds = JSON.parse(messageIds); } catch { /* leave as-is */ }
+                }
+                if (messageId && messageIds) {
+                  return { error: "Specify messageId or messageIds, not both" };
+                }
+                if (messageId) {
+                  messageIds = [messageId];
+                }
+                if (!Array.isArray(messageIds) || messageIds.length === 0) {
+                  return { error: "messageId or messageIds is required" };
                 }
                 if (typeof folderPath !== "string" || !folderPath) {
                   return { error: "folderPath must be a non-empty string" };
@@ -1780,19 +1791,52 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   return { error: "Cannot specify both moveTo and trash" };
                 }
 
-                const found = findMessage(messageId, folderPath);
-                if (found.error) return { error: found.error };
+                // Find all requested message headers
+                const opened = openFolder(folderPath);
+                if (opened.error) return { error: opened.error };
+                const { folder, db } = opened;
 
-                const { msgHdr, folder } = found;
+                const foundHdrs = [];
+                const notFound = [];
+                for (const msgId of messageIds) {
+                  if (typeof msgId !== "string" || !msgId) {
+                    notFound.push(msgId);
+                    continue;
+                  }
+                  let hdr = null;
+                  const hasDirectLookup = typeof db.getMsgHdrForMessageID === "function";
+                  if (hasDirectLookup) {
+                    try { hdr = db.getMsgHdrForMessageID(msgId); } catch { hdr = null; }
+                  }
+                  if (!hdr) {
+                    for (const h of db.enumerateMessages()) {
+                      if (h.messageId === msgId) { hdr = h; break; }
+                    }
+                  }
+                  if (hdr) {
+                    foundHdrs.push(hdr);
+                  } else {
+                    notFound.push(msgId);
+                  }
+                }
+
+                if (foundHdrs.length === 0) {
+                  return { error: "No matching messages found" };
+                }
+
                 const actions = [];
 
                 if (read !== undefined) {
-                  msgHdr.markRead(read);
+                  for (const hdr of foundHdrs) {
+                    hdr.markRead(read);
+                  }
                   actions.push({ type: "read", value: read });
                 }
 
                 if (flagged !== undefined) {
-                  msgHdr.markFlagged(flagged);
+                  for (const hdr of foundHdrs) {
+                    hdr.markFlagged(flagged);
+                  }
                   actions.push({ type: "flagged", value: flagged });
                 }
 
@@ -1847,11 +1891,13 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 }
 
                 if (targetFolder) {
-                  MailServices.copy.copyMessages(folder, [msgHdr], targetFolder, true, null, null, false);
+                  MailServices.copy.copyMessages(folder, foundHdrs, targetFolder, true, null, null, false);
                   actions.push({ type: "move", to: targetFolder.URI });
                 }
 
-                return { success: true, actions };
+                const result = { success: true, updated: foundHdrs.length, actions };
+                if (notFound.length > 0) result.notFound = notFound;
+                return result;
               } catch (e) {
                 return { error: e.toString() };
               }
@@ -2387,7 +2433,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 case "deleteMessages":
                   return deleteMessages(args.messageIds, args.folderPath);
                 case "updateMessage":
-                  return updateMessage(args.messageId, args.folderPath, args.read, args.flagged, args.moveTo, args.trash);
+                  return updateMessage(args.messageId, args.messageIds, args.folderPath, args.read, args.flagged, args.moveTo, args.trash);
                 case "createFolder":
                   return createFolder(args.parentFolderPath, args.name);
                 case "listFilters":
