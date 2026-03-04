@@ -34,381 +34,6 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
       resProto.ALLOW_CONTENT_ACCESS
     );
 
-    const tools = [
-      {
-        name: "listAccounts",
-        title: "List Accounts",
-        description: "List all email accounts and their identities",
-        inputSchema: { type: "object", properties: {}, required: [] },
-      },
-      {
-        name: "listFolders",
-        title: "List Folders",
-        description: "List all mail folders with URIs and message counts",
-        inputSchema: {
-          type: "object",
-          properties: {
-            accountId: { type: "string", description: "Optional account ID (from listAccounts) to limit results to a single account" },
-            folderPath: { type: "string", description: "Optional folder URI to list only that folder and its subfolders" },
-          },
-          required: [],
-        },
-      },
-      {
-        name: "searchMessages",
-        title: "Search Mail",
-        description: "Search message headers and return IDs/folder paths you can use with getMessage to read full email content",
-        inputSchema: {
-          type: "object",
-          properties: {
-            query: { type: "string", description: "Text to search in subject, author, or recipients (use empty string to match all)" },
-            folderPath: { type: "string", description: "Optional folder URI to limit search to that folder and its subfolders" },
-            startDate: { type: "string", description: "Filter messages on or after this ISO 8601 date" },
-            endDate: { type: "string", description: "Filter messages on or before this ISO 8601 date" },
-            maxResults: { type: "number", description: "Maximum number of results to return (default 50, max 200)" },
-            sortOrder: { type: "string", description: "Date sort order: asc (oldest first) or desc (newest first, default)" },
-            unreadOnly: { type: "boolean", description: "Only return unread messages (default: false)" },
-            flaggedOnly: { type: "boolean", description: "Only return flagged/starred messages (default: false)" }
-          },
-          required: ["query"],
-        },
-      },
-      {
-        name: "getMessage",
-        title: "Get Message",
-        description: "Read the full content of an email message by its ID",
-        inputSchema: {
-          type: "object",
-          properties: {
-            messageId: { type: "string", description: "The message ID (from searchMessages results)" },
-            folderPath: { type: "string", description: "The folder URI path (from searchMessages results)" },
-            saveAttachments: { type: "boolean", description: "If true, save attachments to /tmp/thunderbird-mcp/<messageId>/ and include filePath in response (default: false)" }
-          },
-          required: ["messageId", "folderPath"],
-        },
-      },
-      {
-        name: "sendMail",
-        title: "Compose Mail",
-        description: "Open a compose window with pre-filled recipient, subject, and body for user review before sending",
-        inputSchema: {
-          type: "object",
-          properties: {
-            to: { type: "string", description: "Recipient email address" },
-            subject: { type: "string", description: "Email subject line" },
-            body: { type: "string", description: "Email body text" },
-            cc: { type: "string", description: "CC recipients (comma-separated)" },
-            bcc: { type: "string", description: "BCC recipients (comma-separated)" },
-            isHtml: { type: "boolean", description: "Set to true if body contains HTML markup (default: false)" },
-            from: { type: "string", description: "Sender identity (email address or identity ID from listAccounts)" },
-            attachments: { type: "array", items: { type: "string" }, description: "Array of file paths to attach" },
-          },
-          required: ["to", "subject", "body"],
-        },
-      },
-      {
-        name: "listCalendars",
-        title: "List Calendars",
-        description: "Return the user's calendars",
-        inputSchema: { type: "object", properties: {}, required: [] },
-      },
-      {
-        name: "createEvent",
-        title: "Create Event",
-        description: "Create a calendar event. By default opens a review dialog; set skipReview to add directly.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            title: { type: "string", description: "Event title" },
-            startDate: { type: "string", description: "Start date/time in ISO 8601 format" },
-            endDate: { type: "string", description: "End date/time in ISO 8601 (defaults to startDate + 1h for timed, +1 day for all-day)" },
-            location: { type: "string", description: "Event location" },
-            description: { type: "string", description: "Event description" },
-            calendarId: { type: "string", description: "Target calendar ID (from listCalendars, defaults to first writable calendar)" },
-            allDay: { type: "boolean", description: "Create an all-day event (default: false)" },
-            skipReview: { type: "boolean", description: "If true, add the event directly without opening a review dialog (default: false)" },
-          },
-          required: ["title", "startDate"],
-        },
-      },
-      {
-        name: "listEvents",
-        title: "List Events",
-        description: "List calendar events within a date range",
-        inputSchema: {
-          type: "object",
-          properties: {
-            calendarId: { type: "string", description: "Calendar ID to query (from listCalendars). If omitted, queries all calendars." },
-            startDate: { type: "string", description: "Start of date range in ISO 8601 format (default: now)" },
-            endDate: { type: "string", description: "End of date range in ISO 8601 format (default: 30 days from startDate)" },
-            maxResults: { type: "number", description: "Maximum number of events to return (default: 100)" },
-          },
-          required: [],
-        },
-      },
-      {
-        name: "updateEvent",
-        title: "Update Event",
-        description: "Update an existing calendar event's title, dates, location, or description",
-        inputSchema: {
-          type: "object",
-          properties: {
-            eventId: { type: "string", description: "The event ID (from listEvents results)" },
-            calendarId: { type: "string", description: "The calendar ID containing the event (from listEvents results)" },
-            title: { type: "string", description: "New event title (optional)" },
-            startDate: { type: "string", description: "New start date/time in ISO 8601 format (optional)" },
-            endDate: { type: "string", description: "New end date/time in ISO 8601 format (optional)" },
-            location: { type: "string", description: "New event location (optional)" },
-            description: { type: "string", description: "New event description (optional)" },
-          },
-          required: ["eventId", "calendarId"],
-        },
-      },
-      {
-        name: "deleteEvent",
-        title: "Delete Event",
-        description: "Delete a calendar event",
-        inputSchema: {
-          type: "object",
-          properties: {
-            eventId: { type: "string", description: "The event ID (from listEvents results)" },
-            calendarId: { type: "string", description: "The calendar ID containing the event (from listEvents results)" },
-          },
-          required: ["eventId", "calendarId"],
-        },
-      },
-      {
-        name: "searchContacts",
-        title: "Search Contacts",
-        description: "Find contacts the user interacted with",
-        inputSchema: {
-          type: "object",
-          properties: {
-            query: { type: "string", description: "Email address or name to search for" }
-          },
-          required: ["query"],
-        },
-      },
-      {
-        name: "replyToMessage",
-        title: "Reply to Message",
-        description: "Open a reply compose window for a specific message with proper threading",
-        inputSchema: {
-          type: "object",
-          properties: {
-            messageId: { type: "string", description: "The message ID to reply to (from searchMessages results)" },
-            folderPath: { type: "string", description: "The folder URI path (from searchMessages results)" },
-            body: { type: "string", description: "Reply body text" },
-            replyAll: { type: "boolean", description: "Reply to all recipients (default: false)" },
-            isHtml: { type: "boolean", description: "Set to true if body contains HTML markup (default: false)" },
-            to: { type: "string", description: "Override recipient email (default: original sender)" },
-            cc: { type: "string", description: "CC recipients (comma-separated)" },
-            bcc: { type: "string", description: "BCC recipients (comma-separated)" },
-            from: { type: "string", description: "Sender identity (email address or identity ID from listAccounts)" },
-            attachments: { type: "array", items: { type: "string" }, description: "Array of file paths to attach" },
-          },
-          required: ["messageId", "folderPath", "body"],
-        },
-      },
-      {
-        name: "forwardMessage",
-        title: "Forward Message",
-        description: "Open a forward compose window for a message with attachments preserved",
-        inputSchema: {
-          type: "object",
-          properties: {
-            messageId: { type: "string", description: "The message ID to forward (from searchMessages results)" },
-            folderPath: { type: "string", description: "The folder URI path (from searchMessages results)" },
-            to: { type: "string", description: "Recipient email address" },
-            body: { type: "string", description: "Additional text to prepend (optional)" },
-            isHtml: { type: "boolean", description: "Set to true if body contains HTML markup (default: false)" },
-            cc: { type: "string", description: "CC recipients (comma-separated)" },
-            bcc: { type: "string", description: "BCC recipients (comma-separated)" },
-            from: { type: "string", description: "Sender identity (email address or identity ID from listAccounts)" },
-            attachments: { type: "array", items: { type: "string" }, description: "Array of additional file paths to attach" },
-          },
-          required: ["messageId", "folderPath", "to"],
-        },
-      },
-      {
-        name: "getRecentMessages",
-        title: "Get Recent Messages",
-        description: "Get recent messages from a specific folder or all folders, with date and unread filtering",
-        inputSchema: {
-          type: "object",
-          properties: {
-            folderPath: { type: "string", description: "Folder URI to list messages from (defaults to all Inboxes)" },
-            daysBack: { type: "number", description: "Only return messages from the last N days (default: 7)" },
-            maxResults: { type: "number", description: "Maximum number of results (default: 50, max: 200)" },
-            unreadOnly: { type: "boolean", description: "Only return unread messages (default: false)" },
-            flaggedOnly: { type: "boolean", description: "Only return flagged/starred messages (default: false)" },
-          },
-          required: [],
-        },
-      },
-      {
-        name: "deleteMessages",
-        title: "Delete Messages",
-        description: "Delete messages from a folder. Drafts are moved to Trash instead of permanently deleted.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            messageIds: { type: "array", items: { type: "string" }, description: "Array of message IDs to delete" },
-            folderPath: { type: "string", description: "The folder URI containing the messages" },
-          },
-          required: ["messageIds", "folderPath"],
-        },
-      },
-      {
-        name: "updateMessage",
-        title: "Update Message",
-        description: "Update one or more messages' read/flagged state and optionally move them to another folder or to Trash. Supply messageId for a single message or messageIds for bulk operations.",
-        inputSchema: {
-          type: "object",
-          properties: {
-            messageId: { type: "string", description: "A single message ID (from searchMessages results). Use messageId or messageIds, not both." },
-            messageIds: { type: "array", items: { type: "string" }, description: "Array of message IDs for bulk operations. Use messageId or messageIds, not both." },
-            folderPath: { type: "string", description: "The folder URI path (from searchMessages results)" },
-            read: { type: "boolean", description: "Set to true/false to mark read/unread (optional)" },
-            flagged: { type: "boolean", description: "Set to true/false to flag/unflag (optional)" },
-            moveTo: { type: "string", description: "Destination folder URI (optional). Cannot be used with trash." },
-            trash: { type: "boolean", description: "Set to true to move message to Trash (optional). Cannot be used with moveTo." },
-          },
-          required: ["folderPath"],
-        },
-      },
-      {
-        name: "createFolder",
-        title: "Create Folder",
-        description: "Create a new mail subfolder under an existing folder",
-        inputSchema: {
-          type: "object",
-          properties: {
-            parentFolderPath: { type: "string", description: "URI of the parent folder (from listFolders)" },
-            name: { type: "string", description: "Name for the new subfolder" },
-          },
-          required: ["parentFolderPath", "name"],
-        },
-      },
-      {
-        name: "listFilters",
-        title: "List Filters",
-        description: "List all mail filters/rules for an account with their conditions and actions",
-        inputSchema: {
-          type: "object",
-          properties: {
-            accountId: { type: "string", description: "Account ID from listAccounts (omit for all accounts)" },
-          },
-          required: [],
-        },
-      },
-      {
-        name: "createFilter",
-        title: "Create Filter",
-        description: "Create a new mail filter rule on an account",
-        inputSchema: {
-          type: "object",
-          properties: {
-            accountId: { type: "string", description: "Account ID" },
-            name: { type: "string", description: "Filter name" },
-            enabled: { type: "boolean", description: "Whether filter is active (default: true)" },
-            type: { type: "number", description: "Filter type bitmask (default: 17 = inbox + manual). 1=inbox, 16=manual, 32=post-plugin, 64=post-outgoing" },
-            conditions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  attrib: { type: "string", description: "Attribute: subject, from, to, cc, toOrCc, body, date, priority, status, size, ageInDays, hasAttachment, junkStatus, tag, otherHeader" },
-                  op: { type: "string", description: "Operator: contains, doesntContain, is, isnt, isEmpty, beginsWith, endsWith, isGreaterThan, isLessThan, isBefore, isAfter, matches, doesntMatch" },
-                  value: { type: "string", description: "Value to match against" },
-                  booleanAnd: { type: "boolean", description: "true=AND with previous, false=OR (default: true)" },
-                  header: { type: "string", description: "Custom header name (only when attrib is otherHeader)" },
-                },
-              },
-              description: "Array of filter conditions",
-            },
-            actions: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  type: { type: "string", description: "Action: moveToFolder, copyToFolder, markRead, markUnread, markFlagged, addTag, changePriority, delete, stopExecution, forward, reply" },
-                  value: { type: "string", description: "Action parameter (folder URI for move/copy, tag name for addTag, priority for changePriority, email for forward)" },
-                },
-              },
-              description: "Array of actions to perform",
-            },
-            insertAtIndex: { type: "number", description: "Position to insert (0 = top priority, default: end of list)" },
-          },
-          required: ["accountId", "name", "conditions", "actions"],
-        },
-      },
-      {
-        name: "updateFilter",
-        title: "Update Filter",
-        description: "Modify an existing filter's properties, conditions, or actions",
-        inputSchema: {
-          type: "object",
-          properties: {
-            accountId: { type: "string", description: "Account ID" },
-            filterIndex: { type: "number", description: "Filter index (from listFilters)" },
-            name: { type: "string", description: "New filter name (optional)" },
-            enabled: { type: "boolean", description: "Enable/disable (optional)" },
-            type: { type: "number", description: "New filter type bitmask (optional)" },
-            conditions: {
-              type: "array",
-              description: "Replace all conditions (optional, same format as createFilter)",
-            },
-            actions: {
-              type: "array",
-              description: "Replace all actions (optional, same format as createFilter)",
-            },
-          },
-          required: ["accountId", "filterIndex"],
-        },
-      },
-      {
-        name: "deleteFilter",
-        title: "Delete Filter",
-        description: "Delete a mail filter by index",
-        inputSchema: {
-          type: "object",
-          properties: {
-            accountId: { type: "string", description: "Account ID" },
-            filterIndex: { type: "number", description: "Filter index to delete (from listFilters)" },
-          },
-          required: ["accountId", "filterIndex"],
-        },
-      },
-      {
-        name: "reorderFilters",
-        title: "Reorder Filters",
-        description: "Move a filter to a different position in the execution order",
-        inputSchema: {
-          type: "object",
-          properties: {
-            accountId: { type: "string", description: "Account ID" },
-            fromIndex: { type: "number", description: "Current filter index" },
-            toIndex: { type: "number", description: "Target index (0 = highest priority)" },
-          },
-          required: ["accountId", "fromIndex", "toIndex"],
-        },
-      },
-      {
-        name: "applyFilters",
-        title: "Apply Filters",
-        description: "Manually run all enabled filters on a folder to organize existing messages",
-        inputSchema: {
-          type: "object",
-          properties: {
-            accountId: { type: "string", description: "Account ID (uses its filters)" },
-            folderPath: { type: "string", description: "Folder URI to apply filters to (from listFolders)" },
-          },
-          required: ["accountId", "folderPath"],
-        },
-      },
-    ];
-
     return {
       mcpServer: {
         start: async function() {
@@ -428,6 +53,44 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               "resource:///modules/MailServices.sys.mjs"
             );
 
+            // Load tool definitions from shared JSON file
+            let tools;
+            try {
+              console.log("[thunderbird-mcp]","Loading tools.json...");
+              const toolsUri = Services.io.newURI("resource://thunderbird-mcp/mcp_server/tools.json");
+              const toolsChannel = NetUtil.newChannel({
+                uri: toolsUri,
+                loadUsingSystemPrincipal: true,
+              });
+              const toolsStream = toolsChannel.open();
+              const toolsJson = NetUtil.readInputStreamToString(toolsStream, toolsStream.available(), { charset: "UTF-8" });
+              toolsStream.close();
+              tools = JSON.parse(toolsJson);
+              console.log("[thunderbird-mcp]",`Loaded ${tools.length} tools`);
+            } catch (e) {
+              console.log("[thunderbird-mcp]",`Failed to load tools.json: ${e}`);
+              throw e;
+            }
+
+            function mcpWarn(context, error) {
+              console.warn(`[thunderbird-mcp] ${context}:`, error?.message || error);
+            }
+
+            // Generate auth token and write to ~/.thunderbird-mcp-token
+            let authToken;
+            try {
+              console.log("[thunderbird-mcp]","Generating auth token...");
+              authToken = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+              console.log("[thunderbird-mcp]","Token generated, writing to file...");
+              const tokenFilePath = Services.dirsvc.get("Home", Ci.nsIFile).path + "/.thunderbird-mcp-token";
+              await IOUtils.writeUTF8(tokenFilePath, authToken);
+              await IOUtils.setPermissions(tokenFilePath, 0o600);
+              console.log("[thunderbird-mcp]","Token file written successfully");
+            } catch (e) {
+              console.log("[thunderbird-mcp]",`Failed to write auth token: ${e}`);
+              authToken = null;
+            }
+
             let cal = null;
             let CalEvent = null;
             try {
@@ -439,8 +102,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 "resource:///modules/CalEvent.sys.mjs"
               );
               CalEvent = CE;
-            } catch {
-              // Calendar not available
+            } catch (e) { mcpWarn("calendar module not available", e);
             }
 
             /**
@@ -514,8 +176,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                     unreadMessages: folder.getNumUnread(false),
                     depth
                   });
-                } catch {
-                  // Skip inaccessible folders
+                } catch (e) { mcpWarn("folder access", e);
                 }
 
                 try {
@@ -524,8 +185,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       walkFolder(subfolder, accountKey, depth + 1);
                     }
                   }
-                } catch {
-                  // Skip subfolder traversal errors
+                } catch (e) { mcpWarn("subfolder traversal", e);
                 }
               }
 
@@ -560,8 +220,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       walkFolder(subfolder, target.key, 0);
                     }
                   }
-                } catch {
-                  // Skip inaccessible account
+                } catch (e) { mcpWarn("account folder access", e);
                 }
                 return results;
               }
@@ -575,8 +234,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       walkFolder(subfolder, account.key, 0);
                     }
                   }
-                } catch {
-                  // Skip inaccessible accounts/folders
+                } catch (e) { mcpWarn("account folder access", e);
                 }
               }
 
@@ -621,7 +279,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   } else {
                     result.failed.push(filePath);
                   }
-                } catch {
+                } catch (e) { mcpWarn("attachment add", e);
                   result.failed.push(filePath);
                 }
               }
@@ -683,8 +341,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
 	                if (folder.server && folder.server.type === "imap") {
 	                  try {
 	                    folder.updateFolder(null);
-	                  } catch {
-	                    // updateFolder may fail, continue anyway
+	                  } catch (e) { mcpWarn("IMAP folder refresh", e);
 	                  }
 	                }
 
@@ -708,7 +365,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               let account = null;
               try {
                 account = MailServices.accounts.findAccountForServer(folder.server);
-              } catch {
+              } catch (e) { mcpWarn("trash folder lookup", e);
                 return null;
               }
               const root = account?.incomingServer?.rootFolder;
@@ -747,7 +404,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
 	              if (hasDirectLookup) {
 	                try {
 	                  msgHdr = db.getMsgHdrForMessageID(messageId);
-	                } catch {
+	                } catch (e) { mcpWarn("message ID lookup", e);
 	                  msgHdr = null;
 	                }
 	              }
@@ -794,8 +451,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   if (folder.server && folder.server.type === "imap") {
                     try {
                       folder.updateFolder(null);
-                    } catch {
-                      // updateFolder may fail, continue anyway
+                    } catch (e) { mcpWarn("IMAP folder refresh", e);
                     }
                   }
 
@@ -840,8 +496,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       _dateTs: msgDateTs
                     });
                   }
-                } catch {
-                  // Skip inaccessible folders
+                } catch (e) { mcpWarn("message enumeration", e);
                 }
 
                 if (folder.hasSubFolders) {
@@ -1129,7 +784,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                           results.push(formatItem(occ, calendar));
                           if (results.length >= limit) break;
                         }
-                      } catch {
+                      } catch (e) { mcpWarn("recurring event expansion", e);
                         results.push(formatItem(item, calendar));
                       }
                     } else {
@@ -1316,7 +971,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                     let bodyIsHtml = false;
                     try {
                       body = aMimeMsg.coerceBodyToPlaintext();
-                    } catch {
+                    } catch (e) { mcpWarn("body extraction", e);
                       body = "";
                     }
 
@@ -1402,7 +1057,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                         } else {
                           body = "(Could not extract body text)";
                         }
-                      } catch {
+                      } catch (e) { mcpWarn("body extraction fallback", e);
                         body = "(Could not extract body text)";
                       }
                     }
@@ -1700,7 +1355,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       if (aMimeMsg) {
                         try {
                           originalBody = aMimeMsg.coerceBodyToPlaintext() || "";
-                        } catch {
+                        } catch (e) { mcpWarn("reply body extraction", e);
                           originalBody = "";
                         }
                       }
@@ -1836,7 +1491,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       if (aMimeMsg) {
                         try {
                           originalBody = aMimeMsg.coerceBodyToPlaintext() || "";
-                        } catch {
+                        } catch (e) { mcpWarn("forward body extraction", e);
                           originalBody = "";
                         }
                       }
@@ -1872,8 +1527,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                             attachment.contentType = att.contentType;
                             composeFields.addAttachment(attachment);
                             origAttCount++;
-                          } catch {
-                            // Skip unreadable original attachments
+                          } catch (e) { mcpWarn("forward attachment copy", e);
                           }
                         }
                       }
@@ -1945,8 +1599,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       _dateTs: msgDateTs
                     });
                   }
-                } catch {
-                  // Skip inaccessible folders
+                } catch (e) { mcpWarn("recent messages enumeration", e);
                 }
 
                 if (folder.hasSubFolders) {
@@ -1969,8 +1622,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   try {
                     const root = account.incomingServer.rootFolder;
                     collectFromFolder(root);
-                  } catch {
-                    // Skip inaccessible accounts
+                  } catch (e) { mcpWarn("account folder access", e);
                   }
                 }
               }
@@ -2190,8 +1842,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       }
                     }
                   }
-                } catch {
-                  // Folder may not be immediately visible (IMAP)
+                } catch (e) { mcpWarn("folder creation", e);
                 }
 
                 return {
@@ -2271,9 +1922,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   if (term.arbitraryHeader) t.header = term.arbitraryHeader;
                   terms.push(t);
                 }
-              } catch {
-                // searchTerms iteration may fail on some TB versions
-                // Try indexed access via termAsString as fallback
+              } catch (e) { mcpWarn("filter term serialization", e);
               }
 
               const actions = [];
@@ -2291,8 +1940,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                     try { if (action.strValue) act.value = action.strValue; } catch {}
                   }
                   actions.push(act);
-                } catch {
-                  // Skip unreadable actions
+                } catch (e) { mcpWarn("filter action serialization", e);
                 }
               }
 
@@ -2378,8 +2026,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                     for (let i = 0; i < filterList.filterCount; i++) {
                       try {
                         filters.push(serializeFilter(filterList.getFilterAt(i), i));
-                      } catch {
-                        // Skip unreadable filters
+                      } catch (e) { mcpWarn("filter access", e);
                       }
                     }
 
@@ -2390,8 +2037,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       loggingEnabled: filterList.loggingEnabled,
                       filters,
                     });
-                  } catch {
-                    // Skip inaccessible accounts
+                  } catch (e) { mcpWarn("filter list access", e);
                   }
                 }
 
@@ -2636,12 +2282,12 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 let filterService;
                 try {
                   filterService = MailServices.filters;
-                } catch {}
+                } catch (e) { mcpWarn("filter service init", e); }
                 if (!filterService) {
                   try {
                     filterService = Cc["@mozilla.org/messenger/filter-service;1"]
                       .getService(Ci.nsIMsgFilterService);
-                  } catch {}
+                  } catch (e) { mcpWarn("filter service fallback", e); }
                 }
                 if (!filterService) {
                   return { error: "Filter service not available in this Thunderbird version" };
@@ -2667,6 +2313,27 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             }
 
             async function callTool(name, args) {
+              // Validate tool exists and check required fields
+              const toolDef = tools.find(t => t.name === name);
+              if (!toolDef) throw new Error(`Unknown tool: ${name}`);
+
+              const schema = toolDef.inputSchema;
+              if (schema && schema.required) {
+                for (const field of schema.required) {
+                  if (args[field] === undefined || args[field] === null) {
+                    throw new Error(`Missing required field: ${field}`);
+                  }
+                  const expectedType = schema.properties?.[field]?.type;
+                  if (expectedType === "array") {
+                    if (!Array.isArray(args[field])) {
+                      throw new Error(`Field "${field}" must be an array, got ${typeof args[field]}`);
+                    }
+                  } else if (expectedType && typeof args[field] !== expectedType) {
+                    throw new Error(`Field "${field}" must be ${expectedType}, got ${typeof args[field]}`);
+                  }
+                }
+              }
+
               switch (name) {
                 case "listAccounts":
                   return listAccounts();
@@ -2714,8 +2381,6 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   return reorderFilters(args.accountId, args.fromIndex, args.toIndex);
                 case "applyFilters":
                   return applyFilters(args.accountId, args.folderPath);
-                default:
-                  throw new Error(`Unknown tool: ${name}`);
               }
             }
 
@@ -2723,6 +2388,15 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
 
             server.registerPathHandler("/", (req, res) => {
               res.processAsync();
+
+              // Validate auth token
+              let reqToken = "";
+              try { reqToken = req.getHeader("Authorization"); } catch {}
+              if (authToken && reqToken !== `Bearer ${authToken}`) {
+                res.setStatusLine("1.1", 401, "Unauthorized");
+                res.finish();
+                return;
+              }
 
               if (req.method !== "POST") {
                 res.setStatusLine("1.1", 200, "OK");
@@ -2831,10 +2505,12 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               })();
             });
 
+            console.log("[thunderbird-mcp]","Starting HTTP server...");
             server.start(MCP_PORT);
-            console.log(`Thunderbird MCP server listening on port ${MCP_PORT}`);
+            console.log("[thunderbird-mcp]",`Server listening on port ${MCP_PORT}`);
             return { success: true, port: MCP_PORT };
           } catch (e) {
+            console.log("[thunderbird-mcp]",`FATAL: ${e}\n${e.stack || ""}`);
             console.error("Failed to start MCP server:", e);
             // Clear cached promise so a retry can attempt to bind again
             globalThis.__tbMcpStartPromise = null;
