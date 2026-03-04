@@ -302,6 +302,18 @@
     }
   },
   {
+    "name": "emptyTrash",
+    "title": "Empty Trash",
+    "description": "Permanently delete all messages in the Trash folder",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string", "description": "Account ID to empty trash for (from listAccounts). If omitted, empties trash for all accounts." }
+      },
+      "required": []
+    }
+  },
+  {
     "name": "createDraft",
     "title": "Create Draft",
     "description": "Save a message as a draft without opening a compose window. Can also create a reply draft by providing messageId and folderPath of the original message.",

@@ -138,10 +138,42 @@ export function createFolderHandlers({ MailServices, utils }) {
     }
   }
 
+  function emptyTrash(args) {
+    const { accountId } = args || {};
+    try {
+      const accounts = accountId
+        ? [MailServices.accounts.getAccount(accountId)].filter(Boolean)
+        : [...MailServices.accounts.accounts];
+
+      if (accounts.length === 0) {
+        return { error: accountId ? `Account not found: ${accountId}` : "No accounts found" };
+      }
+
+      let emptied = 0;
+      for (const account of accounts) {
+        const root = account.incomingServer?.rootFolder;
+        if (!root) continue;
+        const trash = findTrashFolder({ server: account.incomingServer });
+        if (trash) {
+          trash.emptyTrash(null);
+          emptied++;
+        }
+      }
+
+      if (emptied === 0) {
+        return { error: "No Trash folders found" };
+      }
+      return { success: true, message: `Emptied Trash for ${emptied} account(s)` };
+    } catch (e) {
+      return { error: e.toString() };
+    }
+  }
+
   return {
     createFolder,
     renameFolder,
     deleteFolder,
     moveFolder,
+    emptyTrash,
   };
 }
