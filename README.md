@@ -135,8 +135,8 @@ The extension listens on `localhost:8765` only. No remote access. However, any l
 # Build the extension
 ./scripts/build.sh
 
-# Install to your Thunderbird profile
-./scripts/install.sh
+# Install: open dist/thunderbird-mcp.xpi in Thunderbird
+# (Tools > Add-ons > Install from File), then restart
 
 # Test the HTTP API directly
 curl -X POST http://localhost:8765 \
@@ -161,12 +161,18 @@ thunderbird-mcp/
 │   ├── background.js           # Extension entry point
 │   ├── httpd.sys.mjs           # Embedded HTTP server (Mozilla)
 │   └── mcp_server/
-│       ├── api.js              # All 25 MCP tools
+│       ├── api.js              # Entry point: server setup, MCP routing
+│       ├── utils.sys.mjs       # Shared utilities
+│       ├── mail.sys.mjs        # Mail tools (accounts, folders, search, messages)
+│       ├── compose.sys.mjs     # Compose tools (send, reply, forward)
+│       ├── folders.sys.mjs     # Folder management tools
+│       ├── calendar.sys.mjs    # Calendar tools (events)
+│       ├── tasks.sys.mjs       # Task/todo tools
+│       ├── contacts.sys.mjs    # Contact tools
 │       ├── tools.json          # Tool definitions and schemas
 │       └── schema.json
 └── scripts/
-    ├── build.sh
-    └── install.sh
+    └── build.sh
 ```
 
 ## Known issues
