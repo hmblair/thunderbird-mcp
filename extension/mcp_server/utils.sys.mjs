@@ -30,19 +30,6 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return formatLocalJsDate(new Date(dt.nativeTime / 1000));
   }
 
-  function escapeHtml(s) {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  function formatBodyHtml(body, isHtml) {
-    if (isHtml) {
-      let text = (body || "").replace(/\n/g, '');
-      text = [...text].map(c => c.codePointAt(0) > 127 ? `&#${c.codePointAt(0)};` : c).join('');
-      return text;
-    }
-    return escapeHtml(body || "").replace(/\n/g, '<br>');
-  }
-
   function findIdentity(emailOrId) {
     if (!emailOrId) return null;
     const lowerInput = emailOrId.toLowerCase();
@@ -54,47 +41,6 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
       }
     }
     return null;
-  }
-
-  function addAttachments(composeFields, attachments) {
-    const result = { added: 0, failed: [] };
-    if (!attachments || !Array.isArray(attachments)) return result;
-    for (const filePath of attachments) {
-      try {
-        const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
-        file.initWithPath(filePath);
-        if (file.exists()) {
-          const attachment = Cc["@mozilla.org/messengercompose/attachment;1"]
-            .createInstance(Ci.nsIMsgAttachment);
-          attachment.url = Services.io.newFileURI(file).spec;
-          attachment.name = file.leafName;
-          composeFields.addAttachment(attachment);
-          result.added++;
-        } else {
-          result.failed.push(filePath);
-        }
-      } catch (e) { mcpWarn("attachment add", e);
-        result.failed.push(filePath);
-      }
-    }
-    return result;
-  }
-
-  function setComposeIdentity(msgComposeParams, from, fallbackServer) {
-    const identity = findIdentity(from);
-    if (identity) {
-      msgComposeParams.identity = identity;
-      return "";
-    }
-    // Fallback to default identity for the account
-    if (fallbackServer) {
-      const account = MailServices.accounts.findAccountForServer(fallbackServer);
-      if (account) msgComposeParams.identity = account.defaultIdentity;
-    } else {
-      const defaultAccount = MailServices.accounts.defaultAccount;
-      if (defaultAccount) msgComposeParams.identity = defaultAccount.defaultIdentity;
-    }
-    return from ? `unknown identity: ${from}, using default` : "";
   }
 
   function openFolder(folderPath) {
@@ -155,6 +101,33 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return fallback;
   }
 
+  function findDraftsFolder(account) {
+    const DRAFTS_FLAG = 0x00000400;
+    const root = account?.incomingServer?.rootFolder;
+    if (!root) return null;
+
+    let fallback = null;
+    const DRAFTS_NAMES = ["drafts"];
+    const stack = [root];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      try {
+        if (current && typeof current.getFlag === "function" && current.getFlag(DRAFTS_FLAG)) {
+          return current;
+        }
+      } catch {}
+      if (!fallback && current?.prettyName && DRAFTS_NAMES.includes(current.prettyName.toLowerCase())) {
+        fallback = current;
+      }
+      try {
+        if (current?.hasSubFolders) {
+          for (const sf of current.subFolders) stack.push(sf);
+        }
+      } catch {}
+    }
+    return fallback;
+  }
+
   function findMessage(messageId, folderPath) {
     const opened = openFolder(folderPath);
     if (opened.error) return opened;
@@ -192,13 +165,10 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     parseDate,
     formatCalDateTime,
     formatLocalJsDate,
-    escapeHtml,
-    formatBodyHtml,
     findIdentity,
-    addAttachments,
-    setComposeIdentity,
     openFolder,
     findTrashFolder,
+    findDraftsFolder,
     findMessage,
   };
 }

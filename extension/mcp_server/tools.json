@@ -53,25 +53,6 @@
     }
   },
   {
-    "name": "sendMail",
-    "title": "Compose Mail",
-    "description": "Open a compose window with pre-filled recipient, subject, and body for user review before sending",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "to": { "type": "string", "description": "Recipient email address" },
-        "subject": { "type": "string", "description": "Email subject line" },
-        "body": { "type": "string", "description": "Email body text" },
-        "cc": { "type": "string", "description": "CC recipients (comma-separated)" },
-        "bcc": { "type": "string", "description": "BCC recipients (comma-separated)" },
-        "isHtml": { "type": "boolean", "description": "Set to true if body contains HTML markup (default: false)" },
-        "from": { "type": "string", "description": "Sender identity (email address or identity ID from listAccounts)" },
-        "attachments": { "type": "array", "items": { "type": "string" }, "description": "Array of file paths to attach" }
-      },
-      "required": ["to", "subject", "body"]
-    }
-  },
-  {
     "name": "listCalendars",
     "title": "List Calendars",
     "description": "Return the user's calendars",
@@ -218,47 +199,6 @@
     }
   },
   {
-    "name": "replyToMessage",
-    "title": "Reply to Message",
-    "description": "Open a reply compose window for a specific message with proper threading",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "messageId": { "type": "string", "description": "The message ID to reply to (from searchMessages results)" },
-        "folderPath": { "type": "string", "description": "The folder URI path (from searchMessages results)" },
-        "body": { "type": "string", "description": "Reply body text" },
-        "replyAll": { "type": "boolean", "description": "Reply to all recipients (default: false)" },
-        "isHtml": { "type": "boolean", "description": "Set to true if body contains HTML markup (default: false)" },
-        "to": { "type": "string", "description": "Override recipient email (default: original sender)" },
-        "cc": { "type": "string", "description": "CC recipients (comma-separated)" },
-        "bcc": { "type": "string", "description": "BCC recipients (comma-separated)" },
-        "from": { "type": "string", "description": "Sender identity (email address or identity ID from listAccounts)" },
-        "attachments": { "type": "array", "items": { "type": "string" }, "description": "Array of file paths to attach" }
-      },
-      "required": ["messageId", "folderPath", "body"]
-    }
-  },
-  {
-    "name": "forwardMessage",
-    "title": "Forward Message",
-    "description": "Open a forward compose window for a message with attachments preserved",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "messageId": { "type": "string", "description": "The message ID to forward (from searchMessages results)" },
-        "folderPath": { "type": "string", "description": "The folder URI path (from searchMessages results)" },
-        "to": { "type": "string", "description": "Recipient email address" },
-        "body": { "type": "string", "description": "Additional text to prepend (optional)" },
-        "isHtml": { "type": "boolean", "description": "Set to true if body contains HTML markup (default: false)" },
-        "cc": { "type": "string", "description": "CC recipients (comma-separated)" },
-        "bcc": { "type": "string", "description": "BCC recipients (comma-separated)" },
-        "from": { "type": "string", "description": "Sender identity (email address or identity ID from listAccounts)" },
-        "attachments": { "type": "array", "items": { "type": "string" }, "description": "Array of additional file paths to attach" }
-      },
-      "required": ["messageId", "folderPath", "to"]
-    }
-  },
-  {
     "name": "getRecentMessages",
     "title": "Get Recent Messages",
     "description": "Get recent messages from a specific folder or all folders, with date and unread filtering",
@@ -359,6 +299,29 @@
         "destinationParentPath": { "type": "string", "description": "URI of the new parent folder (from listFolders)" }
       },
       "required": ["folderPath", "destinationParentPath"]
+    }
+  },
+  {
+    "name": "createDraft",
+    "title": "Create Draft",
+    "description": "Save a message as a draft without opening a compose window. Can also create a reply draft by providing messageId and folderPath of the original message.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "to": { "type": "string", "description": "Recipient email address(es). For replies, defaults to original sender." },
+        "subject": { "type": "string", "description": "Email subject. For replies, defaults to 'Re: <original subject>'." },
+        "body": { "type": "string", "description": "Email body (your reply text or new message body)" },
+        "cc": { "type": "string", "description": "CC recipients (comma-separated). For reply-all, defaults to original recipients." },
+        "bcc": { "type": "string", "description": "BCC recipients (comma-separated)" },
+        "isHtml": { "type": "boolean", "description": "Whether body is HTML (default: false). Ignored for reply drafts." },
+        "from": { "type": "string", "description": "Sender identity (email address or identity ID from listAccounts)" },
+        "messageId": { "type": "string", "description": "Message ID to reply to (from searchMessages). Enables reply draft mode." },
+        "folderPath": { "type": "string", "description": "Folder URI of the message to reply to (required with messageId)" },
+        "replyAll": { "type": "boolean", "description": "Reply to all recipients (default: false). Only used with messageId." },
+        "forward": { "type": "boolean", "description": "Forward mode (default: false). When true with messageId/folderPath, creates a forward draft with original message body and attachments." },
+        "attachments": { "type": "array", "items": { "type": "string" }, "description": "Array of file paths to attach" }
+      },
+      "required": ["body"]
     }
   }
 ]

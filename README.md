@@ -1,6 +1,6 @@
 # Thunderbird MCP
 
-[![25 Tools](https://img.shields.io/badge/25_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
+[![23 Tools](https://img.shields.io/badge/23_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
 [![Localhost Only](https://img.shields.io/badge/Privacy-localhost_only-green.svg)](#security)
 [![Thunderbird](https://img.shields.io/badge/Thunderbird-102%2B-0a84ff.svg)](https://www.thunderbird.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](LICENSE)
@@ -35,17 +35,15 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 | `getMessage` | Read full email content with optional attachment saving to disk |
 | `getRecentMessages` | Get recent messages with date, unread, and flagged filtering |
 | `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
-| `deleteMessages` | Delete messages (drafts are safely moved to Trash) |
+| `deleteMessages` | Delete messages from a folder |
 
 ### Compose
 
 | Tool | Description |
 |------|-------------|
-| `sendMail` | Open a compose window with pre-filled recipients, subject, and body |
-| `replyToMessage` | Reply with quoted original and proper threading |
-| `forwardMessage` | Forward with all original attachments preserved |
+| `createDraft` | Save a new message, reply, or forward as a draft — fully headless, no compose window |
 
-All compose tools open a window for you to review and edit before sending.
+Drafts are saved directly to the Drafts folder. Supports new messages, replies (with threading and quoted text), and forwards (with original attachments). Add file attachments to any mode.
 
 ### Folders
 
@@ -170,7 +168,7 @@ thunderbird-mcp/
 │       ├── api.js              # Entry point: server setup, MCP routing
 │       ├── utils.sys.mjs       # Shared utilities
 │       ├── mail.sys.mjs        # Mail tools (accounts, folders, search, messages)
-│       ├── compose.sys.mjs     # Compose tools (send, reply, forward)
+│       ├── compose.sys.mjs     # Compose tools (createDraft)
 │       ├── folders.sys.mjs     # Folder management tools
 │       ├── calendar.sys.mjs    # Calendar tools (events)
 │       ├── tasks.sys.mjs       # Task/todo tools
@@ -185,6 +183,7 @@ thunderbird-mcp/
 - IMAP folder databases can be stale until you click on them in Thunderbird
 - Email bodies with control characters are sanitized to avoid breaking JSON
 - HTML-only emails are converted to plain text (original formatting is lost)
+- **EWS (Exchange) drafts**: Drafts created via `createDraft` on EWS accounts may not delete properly through `deleteMessages` or the Thunderbird UI. Right-click the Drafts folder > "Repair Folder" to force a sync and clear stale entries. This is a Thunderbird EWS backend limitation.
 
 ---
 

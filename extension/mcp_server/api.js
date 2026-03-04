@@ -156,9 +156,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             };
 
             // Map tool names to handler names where they differ
-            const toolNameMap = {
-              sendMail: "sendMail",
-            };
+            const toolNameMap = {};
 
             async function callTool(name, args) {
               // Validate tool exists and check required fields

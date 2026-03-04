@@ -688,24 +688,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         return { error: "No matching messages found" };
       }
 
-      const DRAFTS_FLAG = 0x00000400;
-      const isDrafts = typeof folder.getFlag === "function" && folder.getFlag(DRAFTS_FLAG);
-      let trashFolder = null;
-
-      if (isDrafts) {
-        trashFolder = findTrashFolder(folder);
-
-        if (trashFolder) {
-          MailServices.copy.copyMessages(folder, found, trashFolder, true, null, null, false);
-        } else {
-          folder.deleteMessages(found, null, false, true, null, false);
-        }
-      } else {
-        folder.deleteMessages(found, null, false, true, null, false);
-      }
+      folder.deleteMessages(found, null, false, true, null, false);
 
       let result = { success: true, deleted: found.length };
-      if (isDrafts && trashFolder) result.movedToTrash = true;
       if (notFound.length > 0) result.notFound = notFound;
       return result;
     } catch (e) {
