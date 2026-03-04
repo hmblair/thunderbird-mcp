@@ -101,6 +101,33 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return fallback;
   }
 
+  function findJunkFolder(account) {
+    const JUNK_FLAG = 0x40000000;
+    const root = account?.incomingServer?.rootFolder;
+    if (!root) return null;
+
+    let fallback = null;
+    const JUNK_NAMES = ["junk", "junk email", "spam"];
+    const stack = [root];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      try {
+        if (current && typeof current.getFlag === "function" && current.getFlag(JUNK_FLAG)) {
+          return current;
+        }
+      } catch {}
+      if (!fallback && current?.prettyName && JUNK_NAMES.includes(current.prettyName.toLowerCase())) {
+        fallback = current;
+      }
+      try {
+        if (current?.hasSubFolders) {
+          for (const sf of current.subFolders) stack.push(sf);
+        }
+      } catch {}
+    }
+    return fallback;
+  }
+
   function findDraftsFolder(account) {
     const DRAFTS_FLAG = 0x00000400;
     const root = account?.incomingServer?.rootFolder;
@@ -166,6 +193,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     formatCalDateTime,
     formatLocalJsDate,
     findIdentity,
+    findJunkFolder,
     openFolder,
     findTrashFolder,
     findDraftsFolder,

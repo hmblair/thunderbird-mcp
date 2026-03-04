@@ -1,7 +1,7 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, findTrashFolder } = utils;
+  const { mcpWarn, findTrashFolder, findJunkFolder } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
@@ -169,11 +169,49 @@ export function createFolderHandlers({ MailServices, utils }) {
     }
   }
 
+  function emptyJunk(args) {
+    const { accountId } = args || {};
+    try {
+      const accounts = accountId
+        ? [MailServices.accounts.getAccount(accountId)].filter(Boolean)
+        : [...MailServices.accounts.accounts];
+
+      if (accounts.length === 0) {
+        return { error: accountId ? `Account not found: ${accountId}` : "No accounts found" };
+      }
+
+      let emptied = 0;
+      for (const account of accounts) {
+        const junk = findJunkFolder(account);
+        if (!junk) continue;
+        const msgs = [];
+        try {
+          const db = junk.msgDatabase;
+          if (db) {
+            for (const hdr of db.enumerateMessages()) msgs.push(hdr);
+          }
+        } catch {}
+        if (msgs.length > 0) {
+          junk.deleteMessages(msgs, null, true, false, null, false);
+        }
+        emptied++;
+      }
+
+      if (emptied === 0) {
+        return { error: "No Junk folders found" };
+      }
+      return { success: true, message: `Emptied Junk for ${emptied} account(s)` };
+    } catch (e) {
+      return { error: e.toString() };
+    }
+  }
+
   return {
     createFolder,
     renameFolder,
     deleteFolder,
     moveFolder,
     emptyTrash,
+    emptyJunk,
   };
 }

@@ -1,6 +1,6 @@
 # Thunderbird MCP
 
-[![24 Tools](https://img.shields.io/badge/24_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
+[![25 Tools](https://img.shields.io/badge/25_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
 [![Localhost Only](https://img.shields.io/badge/Privacy-localhost_only-green.svg)](#security)
 [![Thunderbird](https://img.shields.io/badge/Thunderbird-102%2B-0a84ff.svg)](https://www.thunderbird.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](LICENSE)
@@ -54,6 +54,7 @@ Drafts are saved directly to the Drafts folder. Supports new messages, replies (
 | `deleteFolder` | Delete a folder (moves to Trash by default) |
 | `moveFolder` | Move a folder under a different parent |
 | `emptyTrash` | Permanently delete all messages in Trash |
+| `emptyJunk` | Permanently delete all messages in Junk/Spam |
 
 ### Calendar
 

@@ -310,6 +310,18 @@
     }
   },
   {
+    "name": "emptyJunk",
+    "title": "Empty Junk",
+    "description": "Permanently delete all messages in the Junk/Spam folder",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string", "description": "Account ID to empty junk for (from listAccounts). If omitted, empties junk for all accounts." }
+      },
+      "required": []
+    }
+  },
+  {
     "name": "emptyTrash",
     "title": "Empty Trash",
     "description": "Permanently delete all messages in the Trash folder",
