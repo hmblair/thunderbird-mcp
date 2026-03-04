@@ -2516,6 +2516,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             console.log("[thunderbird-mcp]","Starting HTTP server...");
             server.start(MCP_PORT);
             console.log("[thunderbird-mcp]",`Server listening on port ${MCP_PORT}`);
+            globalThis.__tbMcpHttpServer = server;
             return { success: true, port: MCP_PORT };
           } catch (e) {
             console.log("[thunderbird-mcp]",`FATAL: ${e}\n${e.stack || ""}`);
@@ -2533,6 +2534,16 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
   }
 
   onShutdown(isAppShutdown) {
+    try {
+      if (globalThis.__tbMcpHttpServer) {
+        globalThis.__tbMcpHttpServer.stop(() => {});
+        globalThis.__tbMcpHttpServer = null;
+        globalThis.__tbMcpStartPromise = null;
+        console.log("[thunderbird-mcp]", "HTTP server stopped");
+      }
+    } catch (e) {
+      console.warn("[thunderbird-mcp]", "Error stopping HTTP server:", e);
+    }
     if (isAppShutdown) return;
     resProto.setSubstitution("thunderbird-mcp", null);
     Services.obs.notifyObservers(null, "startupcache-invalidate");
