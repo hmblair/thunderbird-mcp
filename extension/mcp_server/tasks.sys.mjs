@@ -1,7 +1,7 @@
 // tasks.sys.mjs — Task (todo) tools: list, create, update, delete
 
 export function createTaskHandlers({ cal, CalTodo, utils }) {
-  const { mcpWarn, parseDate, formatCalDateTime } = utils;
+  const { mcpWarn, parseDate, formatCalDateTime, findWritableCalendar } = utils;
 
   async function getCalendarTodos(calendar, rangeStart, rangeEnd) {
     const FILTER_ALL = 0xFFFF;
@@ -134,22 +134,9 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
         if (p >= 0 && p <= 9) todo.priority = p;
       }
 
-      const calendars = cal.manager.getCalendars();
-      let targetCalendar = null;
-      if (calendarId) {
-        targetCalendar = calendars.find(c => c.id === calendarId);
-        if (!targetCalendar) {
-          return { error: `Calendar not found: ${calendarId}` };
-        }
-        if (targetCalendar.readOnly) {
-          return { error: `Calendar is read-only: ${targetCalendar.name}` };
-        }
-      } else {
-        targetCalendar = calendars.find(c => !c.readOnly);
-        if (!targetCalendar) {
-          return { error: "No writable calendar found" };
-        }
-      }
+      const resolved = findWritableCalendar(calendarId);
+      if (resolved.error) return resolved;
+      const targetCalendar = resolved.calendar;
 
       todo.calendar = targetCalendar;
       await targetCalendar.addItem(todo);

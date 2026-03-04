@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, lookupMsgHdr,
+    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, resolveMsgHdrs,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -629,13 +629,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       if (opened.error) return { error: opened.error };
       const { folder, db } = opened;
 
-      const found = [];
-      const notFound = [];
-      for (const msgId of messageIds) {
-        if (typeof msgId !== "string" || !msgId) { notFound.push(msgId); continue; }
-        const hdr = lookupMsgHdr(db, msgId);
-        if (hdr) { found.push(hdr); } else { notFound.push(msgId); }
-      }
+      const { found, notFound } = resolveMsgHdrs(db, messageIds);
 
       if (found.length === 0) {
         return { error: "No matching messages found" };
@@ -694,13 +688,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       if (opened.error) return { error: opened.error };
       const { folder, db } = opened;
 
-      const foundHdrs = [];
-      const notFound = [];
-      for (const msgId of messageIds) {
-        if (typeof msgId !== "string" || !msgId) { notFound.push(msgId); continue; }
-        const hdr = lookupMsgHdr(db, msgId);
-        if (hdr) { foundHdrs.push(hdr); } else { notFound.push(msgId); }
-      }
+      const { found: foundHdrs, notFound } = resolveMsgHdrs(db, messageIds);
 
       if (foundHdrs.length === 0) {
         return { error: "No matching messages found" };

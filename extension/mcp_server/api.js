@@ -92,6 +92,16 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               authToken = null;
             }
 
+            // Load feed modules
+            let FeedUtils = null;
+            try {
+              ({ FeedUtils } = ChromeUtils.importESModule(
+                "resource:///modules/FeedUtils.sys.mjs"
+              ));
+            } catch (e) {
+              console.warn("[thunderbird-mcp] feed module not available:", e?.message || e);
+            }
+
             // Load calendar modules
             let cal = null;
             let CalEvent = null;
@@ -136,6 +146,9 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             const { createContactHandlers } = ChromeUtils.importESModule(
               "resource://thunderbird-mcp/mcp_server/contacts.sys.mjs" + cacheBust
             );
+            const { createFeedHandlers } = ChromeUtils.importESModule(
+              "resource://thunderbird-mcp/mcp_server/feeds.sys.mjs" + cacheBust
+            );
 
             const utils = createUtils({ MailServices, Services, Cc, Ci, cal });
 
@@ -145,6 +158,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             const calendarHandlers = createCalendarHandlers({ Services, cal, CalEvent, ChromeUtils, utils });
             const taskHandlers = createTaskHandlers({ Services, cal, CalTodo, utils });
             const contactHandlers = createContactHandlers({ MailServices });
+            const feedHandlers = createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, utils, FeedUtils });
 
             const handlers = {
               ...mailHandlers,
@@ -153,6 +167,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               ...calendarHandlers,
               ...taskHandlers,
               ...contactHandlers,
+              ...feedHandlers,
             };
 
             // Map tool names to handler names where they differ

@@ -1,7 +1,7 @@
 // calendar.sys.mjs — Calendar tools: list, create, update, delete events
 
 export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
-  const { mcpWarn, parseDate, formatCalDateTime } = utils;
+  const { mcpWarn, parseDate, formatCalDateTime, findWritableCalendar } = utils;
 
   function listCalendars() {
     if (!cal) {
@@ -137,22 +137,9 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
         }
       }
 
-      const calendars = cal.manager.getCalendars();
-      let targetCalendar = null;
-      if (calendarId) {
-        targetCalendar = calendars.find(c => c.id === calendarId);
-        if (!targetCalendar) {
-          return { error: `Calendar not found: ${calendarId}` };
-        }
-        if (targetCalendar.readOnly) {
-          return { error: `Calendar is read-only: ${targetCalendar.name}` };
-        }
-      } else {
-        targetCalendar = calendars.find(c => !c.readOnly);
-        if (!targetCalendar) {
-          return { error: "No writable calendar found" };
-        }
-      }
+      const resolved = findWritableCalendar(calendarId);
+      if (resolved.error) return resolved;
+      const targetCalendar = resolved.calendar;
 
       event.calendar = targetCalendar;
       await targetCalendar.addItem(event);

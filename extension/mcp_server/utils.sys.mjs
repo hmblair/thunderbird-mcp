@@ -183,6 +183,41 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return hdr;
   }
 
+  function resolveMsgHdrs(db, messageIds) {
+    const found = [];
+    const notFound = [];
+    for (const msgId of messageIds) {
+      if (typeof msgId !== "string" || !msgId) { notFound.push(msgId); continue; }
+      const hdr = lookupMsgHdr(db, msgId);
+      if (hdr) { found.push(hdr); } else { notFound.push(msgId); }
+    }
+    return { found, notFound };
+  }
+
+  function findWritableCalendar(calendarId) {
+    if (!cal) return { error: "Calendar not available" };
+    const calendars = cal.manager.getCalendars();
+    if (calendarId) {
+      const target = calendars.find(c => c.id === calendarId);
+      if (!target) return { error: `Calendar not found: ${calendarId}` };
+      if (target.readOnly) return { error: `Calendar is read-only: ${target.name}` };
+      return { calendar: target };
+    }
+    const target = calendars.find(c => !c.readOnly);
+    if (!target) return { error: "No writable calendar found" };
+    return { calendar: target };
+  }
+
+  function resolveAccounts(accountId) {
+    const accounts = accountId
+      ? [resolveAccount(accountId)].filter(Boolean)
+      : [...MailServices.accounts.accounts];
+    if (accounts.length === 0) {
+      return { error: accountId ? `Account not found: ${accountId}` : "No accounts found" };
+    }
+    return { accounts };
+  }
+
   function findMessage(messageId, folderPath) {
     const opened = openFolder(folderPath);
     if (opened.error) return opened;
@@ -211,6 +246,9 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     getAccountId,
     resolveAccount,
     lookupMsgHdr,
+    resolveMsgHdrs,
+    findWritableCalendar,
+    resolveAccounts,
     findMessage,
   };
 }

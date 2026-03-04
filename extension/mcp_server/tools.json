@@ -347,5 +347,76 @@
       },
       "required": ["body"]
     }
+  },
+  {
+    "name": "listFeedAccounts",
+    "title": "List Feed Accounts",
+    "description": "List all RSS/Atom feed accounts configured in Thunderbird",
+    "inputSchema": { "type": "object", "properties": {}, "required": [] }
+  },
+  {
+    "name": "createFeedAccount",
+    "title": "Create Feed Account",
+    "description": "Create a new RSS/Atom feed account",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Display name for the account (default: 'Feeds')" }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "listFeeds",
+    "title": "List Feeds",
+    "description": "List subscribed RSS/Atom feeds. Can filter by account or folder. Feed items are regular messages readable via searchMessages/getMessage.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string", "description": "Account ID or display name to limit results to a single RSS account" },
+        "folderPath": { "type": "string", "description": "Folder URI or short path to list feeds in a specific folder only" }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "subscribeFeed",
+    "title": "Subscribe to Feed",
+    "description": "Subscribe to an RSS/Atom feed URL. Creates a folder for the feed and downloads its items as messages.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "description": "The RSS/Atom feed URL to subscribe to" },
+        "accountId": { "type": "string", "description": "RSS account to subscribe in (uses first RSS account or creates one if omitted)" },
+        "folderPath": { "type": "string", "description": "Specific folder to place the feed in (overrides accountId)" }
+      },
+      "required": ["url"]
+    }
+  },
+  {
+    "name": "unsubscribeFeed",
+    "title": "Unsubscribe from Feed",
+    "description": "Remove an RSS/Atom feed subscription. Removes the feed from the subscriptions database and its cached items.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "description": "The feed URL to unsubscribe from" },
+        "folderPath": { "type": "string", "description": "Folder URI or short path to narrow the search if the same URL exists in multiple accounts" }
+      },
+      "required": ["url"]
+    }
+  },
+  {
+    "name": "refreshFeeds",
+    "title": "Refresh Feeds",
+    "description": "Trigger a feed refresh/download. Can refresh a specific folder, an entire account, or all RSS accounts.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string", "description": "RSS account to refresh (refreshes all accounts if omitted)" },
+        "folderPath": { "type": "string", "description": "Specific folder to refresh (overrides accountId)" }
+      },
+      "required": []
+    }
   }
 ]

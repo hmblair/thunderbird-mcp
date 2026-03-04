@@ -1,7 +1,7 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccount } = utils;
+  const { mcpWarn, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccounts } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
@@ -142,16 +142,11 @@ export function createFolderHandlers({ MailServices, utils }) {
   function emptyTrash(args) {
     const { accountId } = args || {};
     try {
-      const accounts = accountId
-        ? [resolveAccount(accountId)].filter(Boolean)
-        : [...MailServices.accounts.accounts];
-
-      if (accounts.length === 0) {
-        return { error: accountId ? `Account not found: ${accountId}` : "No accounts found" };
-      }
+      const resolved = resolveAccounts(accountId);
+      if (resolved.error) return resolved;
 
       const results = [];
-      for (const account of accounts) {
+      for (const account of resolved.accounts) {
         const root = account.incomingServer?.rootFolder;
         if (!root) continue;
         const trash = findTrashFolder({ server: account.incomingServer });
@@ -173,16 +168,11 @@ export function createFolderHandlers({ MailServices, utils }) {
   function emptyJunk(args) {
     const { accountId } = args || {};
     try {
-      const accounts = accountId
-        ? [resolveAccount(accountId)].filter(Boolean)
-        : [...MailServices.accounts.accounts];
-
-      if (accounts.length === 0) {
-        return { error: accountId ? `Account not found: ${accountId}` : "No accounts found" };
-      }
+      const resolved = resolveAccounts(accountId);
+      if (resolved.error) return resolved;
 
       const results = [];
-      for (const account of accounts) {
+      for (const account of resolved.accounts) {
         const junk = findJunkFolder(account);
         if (!junk) continue;
         const msgs = [];
