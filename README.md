@@ -80,24 +80,30 @@ Drafts are saved directly to the Drafts folder. Supports new messages, replies (
 |------|-------------|
 | `searchContacts` | Look up contacts by name or email address |
 
+### Account identifiers
+
+All tools that accept `accountId` (including `searchMessages`, `listFolders`, `emptyTrash`, `emptyJunk`) accept any of:
+
+- **Internal ID**: `account5`
+- **Email address**: `hmblair@stanford.edu`
+- **Display name**: `hmblair@stanford.edu` (the server's pretty name)
+
 ### Folder paths
 
 All tools that accept a `folderPath` (or `parentFolderPath`, `moveTo`, `copyTo`, `destinationParentPath`) support two formats:
 
 - **Full URI**: `ews://hmblair%40stanford.edu@outlook.office365.com/Inbox`
-- **Short path**: `account1/Inbox`, `account1/Sent Items`, `account1/1 - Now`
+- **Short path**: `account5/Inbox`, `hmblair@stanford.edu/Sent Items`
 
-Short paths use the format `accountId/FolderName/Subfolder`. Folder names are matched case-insensitively. Use `listAccounts` to get account IDs and `listFolders` to see folder names.
+Short paths use the format `account/FolderName/Subfolder`, where `account` can be an ID, email, or display name. Folder names are matched case-insensitively. Use `listAccounts` to find accounts and `listFolders` to see folder names.
 
-### Operation receipts
+### Mutation responses
 
-All mutation tools return structured receipts so you can verify operations actually took effect:
+Thunderbird's mail APIs are fire-and-forget — they do not return success or failure signals. All mutation tools reflect this honestly:
 
-- **`deleteMessages`** returns `deleted`/`failed` arrays (verified against the database), `countBefore`/`countAfter`, and `accountId`
-- **`updateMessage`** verifies flag/read changes and sets `success: false` if verification fails
-- **`createDraft`** returns the `draftsFolder` URI, `accountId`, and message counts before/after
-- **`emptyTrash`/`emptyJunk`** return per-account breakdowns with message counts
-- All mail mutations include `accountId`; all calendar/task mutations include `calendarId` and `calendarName`
+- Responses say `"Requested ..."` rather than claiming success
+- Each response includes context: `accountId` for mail operations, `calendarId`/`calendarName` for calendar/task operations
+- To confirm an operation took effect, query the relevant data after the mutation (e.g. search for the message after moving it)
 
 ---
 
