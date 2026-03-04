@@ -226,7 +226,7 @@
   {
     "name": "updateMessage",
     "title": "Update Message",
-    "description": "Update one or more messages' read/flagged state and optionally move them to another folder or to Trash. Supply messageId for a single message or messageIds for bulk operations.",
+    "description": "Update one or more messages: mark read/unread, flag/unflag, add/remove tags, move, copy, or trash. Supply messageId for a single message or messageIds for bulk operations.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -235,8 +235,11 @@
         "folderPath": { "type": "string", "description": "The folder URI path (from searchMessages results)" },
         "read": { "type": "boolean", "description": "Set to true/false to mark read/unread (optional)" },
         "flagged": { "type": "boolean", "description": "Set to true/false to flag/unflag (optional)" },
-        "moveTo": { "type": "string", "description": "Destination folder URI (optional). Cannot be used with trash." },
-        "trash": { "type": "boolean", "description": "Set to true to move message to Trash (optional). Cannot be used with moveTo." }
+        "addTags": { "type": "array", "items": { "type": "string" }, "description": "Tag keys to add (e.g. [\"$label1\", \"$label2\"]). Standard: $label1=Important, $label2=Work, $label3=Personal, $label4=To Do, $label5=Later" },
+        "removeTags": { "type": "array", "items": { "type": "string" }, "description": "Tag keys to remove" },
+        "moveTo": { "type": "string", "description": "Destination folder URI to move messages to. Only one of moveTo/copyTo/trash allowed." },
+        "copyTo": { "type": "string", "description": "Destination folder URI to copy messages to. Only one of moveTo/copyTo/trash allowed." },
+        "trash": { "type": "boolean", "description": "Set to true to move messages to Trash. Only one of moveTo/copyTo/trash allowed." }
       },
       "required": ["folderPath"]
     }
@@ -252,6 +255,45 @@
         "name": { "type": "string", "description": "Name for the new subfolder" }
       },
       "required": ["parentFolderPath", "name"]
+    }
+  },
+  {
+    "name": "renameFolder",
+    "title": "Rename Folder",
+    "description": "Rename an existing mail folder",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "folderPath": { "type": "string", "description": "URI of the folder to rename (from listFolders)" },
+        "newName": { "type": "string", "description": "New name for the folder" }
+      },
+      "required": ["folderPath", "newName"]
+    }
+  },
+  {
+    "name": "deleteFolder",
+    "title": "Delete Folder",
+    "description": "Delete a mail folder. By default moves to Trash; set permanent=true to delete permanently.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "folderPath": { "type": "string", "description": "URI of the folder to delete (from listFolders)" },
+        "permanent": { "type": "boolean", "description": "If true, permanently delete instead of moving to Trash (default: false)" }
+      },
+      "required": ["folderPath"]
+    }
+  },
+  {
+    "name": "moveFolder",
+    "title": "Move Folder",
+    "description": "Move a folder to be a subfolder of a different parent folder",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "folderPath": { "type": "string", "description": "URI of the folder to move (from listFolders)" },
+        "destinationParentPath": { "type": "string", "description": "URI of the new parent folder (from listFolders)" }
+      },
+      "required": ["folderPath", "destinationParentPath"]
     }
   },
   {

@@ -1716,7 +1716,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               }
             }
 
-            function updateMessage(messageId, messageIds, folderPath, read, flagged, moveTo, trash) {
+            function updateMessage(messageId, messageIds, folderPath, read, flagged, moveTo, copyTo, trash, addTags, removeTags) {
               try {
                 // Normalize to an array of IDs
                 if (typeof messageIds === "string") {
@@ -1742,9 +1742,13 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 if (moveTo !== undefined && (typeof moveTo !== "string" || !moveTo)) {
                   return { error: "moveTo must be a non-empty string" };
                 }
+                if (copyTo !== undefined && (typeof copyTo !== "string" || !copyTo)) {
+                  return { error: "copyTo must be a non-empty string" };
+                }
 
-                if (moveTo && trash === true) {
-                  return { error: "Cannot specify both moveTo and trash" };
+                const moveActions = [moveTo, copyTo, trash === true].filter(Boolean);
+                if (moveActions.length > 1) {
+                  return { error: "Only one of moveTo, copyTo, or trash can be specified" };
                 }
 
                 // Find all requested message headers
@@ -1796,7 +1800,24 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   actions.push({ type: "flagged", value: flagged });
                 }
 
+                if (addTags || removeTags) {
+                  for (const hdr of foundHdrs) {
+                    let keywords = (hdr.getStringProperty("keywords") || "").trim();
+                    let tagSet = new Set(keywords ? keywords.split(/\s+/) : []);
+                    if (addTags) {
+                      for (const t of addTags) tagSet.add(t);
+                    }
+                    if (removeTags) {
+                      for (const t of removeTags) tagSet.delete(t);
+                    }
+                    hdr.setStringProperty("keywords", [...tagSet].join(" "));
+                  }
+                  if (addTags) actions.push({ type: "addTags", value: addTags });
+                  if (removeTags) actions.push({ type: "removeTags", value: removeTags });
+                }
+
                 let targetFolder = null;
+                let isCopy = false;
 
                 if (trash === true) {
                   targetFolder = findTrashFolder(folder);
@@ -1808,11 +1829,17 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   if (!targetFolder) {
                     return { error: `Folder not found: ${moveTo}` };
                   }
+                } else if (copyTo) {
+                  targetFolder = MailServices.folderLookup.getFolderForURL(copyTo);
+                  if (!targetFolder) {
+                    return { error: `Folder not found: ${copyTo}` };
+                  }
+                  isCopy = true;
                 }
 
                 if (targetFolder) {
-                  MailServices.copy.copyMessages(folder, foundHdrs, targetFolder, true, null, null, false);
-                  actions.push({ type: "move", to: targetFolder.URI });
+                  MailServices.copy.copyMessages(folder, foundHdrs, targetFolder, !isCopy, null, null, false);
+                  actions.push({ type: isCopy ? "copy" : "move", to: targetFolder.URI });
                 }
 
                 const result = { success: true, updated: foundHdrs.length, actions };
@@ -1864,6 +1891,94 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   return { error: `Folder "${name}" already exists under this parent` };
                 }
                 return { error: msg };
+              }
+            }
+
+            function renameFolder(folderPath, newName) {
+              try {
+                if (typeof folderPath !== "string" || !folderPath) {
+                  return { error: "folderPath must be a non-empty string" };
+                }
+                if (typeof newName !== "string" || !newName) {
+                  return { error: "newName must be a non-empty string" };
+                }
+
+                const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+                if (!folder) {
+                  return { error: `Folder not found: ${folderPath}` };
+                }
+
+                folder.rename(newName, null);
+
+                return {
+                  success: true,
+                  message: `Folder renamed to "${newName}"`,
+                  path: folder.URI
+                };
+              } catch (e) {
+                return { error: e.toString() };
+              }
+            }
+
+            function deleteFolder(folderPath, permanent) {
+              try {
+                if (typeof folderPath !== "string" || !folderPath) {
+                  return { error: "folderPath must be a non-empty string" };
+                }
+
+                const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+                if (!folder) {
+                  return { error: `Folder not found: ${folderPath}` };
+                }
+
+                const parent = folder.parent;
+                if (!parent) {
+                  return { error: "Cannot delete a root folder" };
+                }
+
+                if (permanent) {
+                  parent.propagateDelete(folder, true, null);
+                  return { success: true, message: `Folder permanently deleted` };
+                } else {
+                  const trashFolder = findTrashFolder(folder);
+                  if (!trashFolder) {
+                    return { error: "Trash folder not found" };
+                  }
+                  parent.propagateDelete(folder, false, null);
+                  return { success: true, message: `Folder moved to Trash` };
+                }
+              } catch (e) {
+                return { error: e.toString() };
+              }
+            }
+
+            function moveFolder(folderPath, destinationParentPath) {
+              try {
+                if (typeof folderPath !== "string" || !folderPath) {
+                  return { error: "folderPath must be a non-empty string" };
+                }
+                if (typeof destinationParentPath !== "string" || !destinationParentPath) {
+                  return { error: "destinationParentPath must be a non-empty string" };
+                }
+
+                const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+                if (!folder) {
+                  return { error: `Folder not found: ${folderPath}` };
+                }
+
+                const destParent = MailServices.folderLookup.getFolderForURL(destinationParentPath);
+                if (!destParent) {
+                  return { error: `Destination folder not found: ${destinationParentPath}` };
+                }
+
+                MailServices.copy.copyFolder(folder, destParent, true, null, null);
+
+                return {
+                  success: true,
+                  message: `Folder moved to "${destParent.prettyName || destParent.name || destinationParentPath}"`
+                };
+              } catch (e) {
+                return { error: e.toString() };
               }
             }
 
@@ -2374,9 +2489,15 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 case "deleteMessages":
                   return deleteMessages(args.messageIds, args.folderPath);
                 case "updateMessage":
-                  return updateMessage(args.messageId, args.messageIds, args.folderPath, args.read, args.flagged, args.moveTo, args.trash);
+                  return updateMessage(args.messageId, args.messageIds, args.folderPath, args.read, args.flagged, args.moveTo, args.copyTo, args.trash, args.addTags, args.removeTags);
                 case "createFolder":
                   return createFolder(args.parentFolderPath, args.name);
+                case "renameFolder":
+                  return renameFolder(args.folderPath, args.newName);
+                case "deleteFolder":
+                  return deleteFolder(args.folderPath, args.permanent);
+                case "moveFolder":
+                  return moveFolder(args.folderPath, args.destinationParentPath);
                 case "listFilters":
                   return listFilters(args.accountId);
                 case "createFilter":
