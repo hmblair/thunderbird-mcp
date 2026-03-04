@@ -1,10 +1,5 @@
 # Thunderbird MCP
 
-[![23 Tools](https://img.shields.io/badge/23_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
-[![Localhost Only](https://img.shields.io/badge/Privacy-localhost_only-green.svg)](#security)
-[![Thunderbird](https://img.shields.io/badge/Thunderbird-115%2B-0a84ff.svg)](https://www.thunderbird.net/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](LICENSE)
-
 Give your AI assistant full access to Thunderbird — read and organize mail, manage calendars and tasks, compose messages, and look up contacts. All through the [Model Context Protocol](https://modelcontextprotocol.io/).
 
 > Inspired by [bb1/thunderbird-mcp](https://github.com/bb1/thunderbird-mcp). Rewritten from scratch with a bundled HTTP server, proper MIME decoding, and UTF-8 handling throughout.
@@ -108,6 +103,8 @@ Thunderbird's mail APIs are fire-and-forget — they do not return success or fa
 ---
 
 ## Setup
+
+Requires [Thunderbird](https://www.thunderbird.net/) 115 or later.
 
 ### 1. Install the extension
 
