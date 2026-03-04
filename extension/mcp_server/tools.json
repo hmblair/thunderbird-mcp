@@ -3,7 +3,13 @@
     "name": "listAccounts",
     "title": "List Accounts",
     "description": "List all email accounts and their identities",
-    "inputSchema": { "type": "object", "properties": {}, "required": [] }
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "includeLocal": { "type": "boolean", "description": "Include Local Folders account (default: false)" }
+      },
+      "required": []
+    }
   },
   {
     "name": "listFolders",
@@ -13,7 +19,8 @@
       "type": "object",
       "properties": {
         "accountId": { "type": "string", "description": "Optional account ID (from listAccounts) to limit results to a single account" },
-        "folderPath": { "type": "string", "description": "Optional folder URI to list only that folder and its subfolders" }
+        "folderPath": { "type": "string", "description": "Optional folder URI to list only that folder and its subfolders" },
+        "includeLocal": { "type": "boolean", "description": "Include Local Folders account (default: false)" }
       },
       "required": []
     }

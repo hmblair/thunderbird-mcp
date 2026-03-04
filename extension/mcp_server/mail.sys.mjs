@@ -9,10 +9,12 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   const MAX_SEARCH_RESULTS_CAP = 200;
   const SEARCH_COLLECTION_CAP = 1000;
 
-  function listAccounts() {
+  function listAccounts(args) {
+    const { includeLocal } = args || {};
     const accounts = [];
     for (const account of MailServices.accounts.accounts) {
       const server = account.incomingServer;
+      if (!includeLocal && server.type === "none") continue;
       const identities = [];
       for (const identity of account.identities) {
         identities.push({
@@ -33,7 +35,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function listFolders(args) {
-    const { accountId, folderPath } = args;
+    const { accountId, folderPath, includeLocal } = args;
     const results = [];
 
     function folderType(flags) {
@@ -112,6 +114,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
     for (const account of MailServices.accounts.accounts) {
       try {
+        if (!includeLocal && account.incomingServer.type === "none") continue;
         const root = account.incomingServer.rootFolder;
         if (!root) continue;
         if (root.hasSubFolders) {
@@ -831,7 +834,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   return {
-    listAccounts: () => listAccounts(),
+    listAccounts,
     listFolders,
     searchMessages,
     getMessage,
