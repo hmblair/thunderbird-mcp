@@ -2,11 +2,11 @@
   "name": "thunderbird-mcp",
   "version": "0.3.7",
   "description": "MCP server for Thunderbird - enables AI assistants to access email, contacts, and calendars",
-  "author": "Tomasz Kasperczyk",
+  "author": "Hamish Blair",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TKasperczyk/thunderbird-mcp"
+    "url": "https://github.com/hmblair/thunderbird-mcp"
   },
   "keywords": [
     "mcp",
