@@ -28,12 +28,12 @@
   {
     "name": "searchMessages",
     "title": "Search Mail",
-    "description": "Search message headers and return IDs/folder paths you can use with getMessage to read full email content",
+    "description": "Search and list messages by query, date range, folder, read/flagged status. Use getMessage to read full content.",
     "inputSchema": {
       "type": "object",
       "properties": {
-        "query": { "type": "string", "description": "Text to search in subject, author, or recipients (use empty string to match all)" },
-        "folderPath": { "type": "string", "description": "Optional folder URI to limit search to that folder and its subfolders" },
+        "query": { "type": "string", "description": "Text to search in subject, author, or recipients (default: empty, matches all)" },
+        "folderPath": { "type": "string", "description": "Folder URI to limit search to that folder and its subfolders" },
         "startDate": { "type": "string", "description": "Filter messages on or after this ISO 8601 date" },
         "endDate": { "type": "string", "description": "Filter messages on or before this ISO 8601 date" },
         "maxResults": { "type": "number", "description": "Maximum number of results to return (default 50, max 1000)" },
@@ -43,7 +43,7 @@
         "snippetLength": { "type": "number", "description": "Include a body preview of up to this many characters (default: 0, no snippet)" },
         "countOnly": { "type": "boolean", "description": "Return only the count of matching messages, not the messages themselves (default: false)" }
       },
-      "required": ["query"]
+      "required": []
     }
   },
   {
@@ -204,23 +204,6 @@
         "query": { "type": "string", "description": "Email address or name to search for" }
       },
       "required": ["query"]
-    }
-  },
-  {
-    "name": "getRecentMessages",
-    "title": "Get Recent Messages",
-    "description": "Get recent messages from a specific folder or all folders, with date and unread filtering",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "folderPath": { "type": "string", "description": "Folder URI to list messages from (defaults to all Inboxes)" },
-        "daysBack": { "type": "number", "description": "Only return messages from the last N days (default: 7)" },
-        "maxResults": { "type": "number", "description": "Maximum number of results (default: 50, max: 200)" },
-        "unreadOnly": { "type": "boolean", "description": "Only return unread messages (default: false)" },
-        "flaggedOnly": { "type": "boolean", "description": "Only return flagged/starred messages (default: false)" },
-        "snippetLength": { "type": "number", "description": "Include a body preview of up to this many characters (default: 0, no snippet)" }
-      },
-      "required": []
     }
   },
   {

@@ -1,6 +1,6 @@
 # Thunderbird MCP
 
-[![25 Tools](https://img.shields.io/badge/25_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
+[![24 Tools](https://img.shields.io/badge/24_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
 [![Localhost Only](https://img.shields.io/badge/Privacy-localhost_only-green.svg)](#security)
 [![Thunderbird](https://img.shields.io/badge/Thunderbird-102%2B-0a84ff.svg)](https://www.thunderbird.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](LICENSE)
@@ -31,9 +31,8 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 |------|-------------|
 | `listAccounts` | List all email accounts and their identities |
 | `listFolders` | Browse folder tree with message counts — filter by account or subtree |
-| `searchMessages` | Find emails by subject, sender, recipient, date range, read/flagged status |
+| `searchMessages` | Search and list messages by query, date range, folder, read/flagged status, or just count them |
 | `getMessage` | Read full email content with optional attachment saving to disk |
-| `getRecentMessages` | Get recent messages with date, unread, and flagged filtering |
 | `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
 | `deleteMessages` | Delete messages from a folder |
 

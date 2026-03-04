@@ -569,93 +569,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     });
   }
 
-  function getRecentMessages(args) {
-    const { folderPath, daysBack, maxResults, unreadOnly, flaggedOnly, snippetLength } = args;
-    const results = [];
-    const days = Number.isFinite(Number(daysBack)) && Number(daysBack) > 0 ? Math.floor(Number(daysBack)) : 7;
-    const cutoffTs = (Date.now() - days * 86400000) * 1000;
-    const requestedLimit = Number(maxResults);
-    const effectiveLimit = Math.min(
-      Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.floor(requestedLimit) : DEFAULT_MAX_RESULTS,
-      MAX_SEARCH_RESULTS_CAP
-    );
-    const snippetLen = Number.isFinite(Number(snippetLength)) && Number(snippetLength) > 0 ? Math.floor(Number(snippetLength)) : 0;
-
-    const seenRecentMsgs = new Set();
-
-    function collectFromFolder(folder) {
-      if (results.length >= SEARCH_COLLECTION_CAP) return;
-
-      try {
-        const db = folder.msgDatabase;
-        if (!db) return;
-
-        for (const msgHdr of db.enumerateMessages()) {
-          if (results.length >= SEARCH_COLLECTION_CAP) break;
-
-          const dedupKey = `${folder.URI}\t${msgHdr.messageId}`;
-          if (seenRecentMsgs.has(dedupKey)) continue;
-          seenRecentMsgs.add(dedupKey);
-
-          const msgDateTs = msgHdr.date || 0;
-          if (msgDateTs < cutoffTs) continue;
-          if (unreadOnly && msgHdr.isRead) continue;
-          if (flaggedOnly && !msgHdr.isFlagged) continue;
-
-          const entry = {
-            id: msgHdr.messageId,
-            subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
-            author: msgHdr.mime2DecodedAuthor || msgHdr.author,
-            recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
-            date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
-            folder: folder.prettyName,
-            folderPath: folder.URI,
-            read: msgHdr.isRead,
-            flagged: msgHdr.isFlagged,
-            _dateTs: msgDateTs
-          };
-          if (snippetLen > 0) {
-            try {
-              const preview = msgHdr.getStringProperty("preview") || "";
-              entry.snippet = preview.substring(0, snippetLen);
-            } catch (e) { entry.snippet = ""; }
-          }
-          results.push(entry);
-        }
-      } catch (e) { mcpWarn("recent messages enumeration", e);
-      }
-
-      if (folder.hasSubFolders) {
-        for (const subfolder of folder.subFolders) {
-          if (results.length >= SEARCH_COLLECTION_CAP) break;
-          collectFromFolder(subfolder);
-        }
-      }
-    }
-
-    if (folderPath) {
-      const opened = openFolder(folderPath);
-      if (opened.error) return { error: opened.error };
-      collectFromFolder(opened.folder);
-    } else {
-      for (const account of MailServices.accounts.accounts) {
-        if (results.length >= SEARCH_COLLECTION_CAP) break;
-        try {
-          const root = account.incomingServer.rootFolder;
-          collectFromFolder(root);
-        } catch (e) { mcpWarn("account folder access", e);
-        }
-      }
-    }
-
-    results.sort((a, b) => b._dateTs - a._dateTs);
-
-    return results.slice(0, effectiveLimit).map(r => {
-      delete r._dateTs;
-      return r;
-    });
-  }
-
   function deleteMessages(args) {
     let { messageIds, folderPath } = args;
     try {
@@ -848,7 +761,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     listFolders,
     searchMessages,
     getMessage,
-    getRecentMessages,
     deleteMessages,
     updateMessage,
   };
