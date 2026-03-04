@@ -130,7 +130,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function searchMessages(args) {
-    const { query, folderPath, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly } = args;
+    const { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly } = args;
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
     const hasQuery = !!lowerQuery;
@@ -202,6 +202,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
             folder: folder.prettyName,
             folderPath: folder.URI,
+            accountId: getAccountId(folder),
             read: msgHdr.isRead,
             flagged: msgHdr.isFlagged,
             _dateTs: msgDateTs
@@ -231,6 +232,15 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         return { error: `Folder not found: ${folderPath}` };
       }
       searchFolder(folder);
+    } else if (accountId) {
+      let target = null;
+      for (const account of MailServices.accounts.accounts) {
+        if (account.key === accountId) { target = account; break; }
+      }
+      if (!target) {
+        return { error: `Account not found: ${accountId}` };
+      }
+      searchFolder(target.incomingServer.rootFolder);
     } else {
       for (const account of MailServices.accounts.accounts) {
         if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
@@ -385,6 +395,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
             ccList: msgHdr.ccList,
             date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
+            accountId: getAccountId(found.folder),
             body,
             bodyIsHtml,
             attachments

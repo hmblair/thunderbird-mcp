@@ -141,7 +141,7 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
 
       event.calendar = targetCalendar;
       await targetCalendar.addItem(event);
-      return { success: true, message: `Event "${title}" added to calendar "${targetCalendar.name}"` };
+      return { success: true, message: `Event "${title}" added to calendar "${targetCalendar.name}"`, calendarId: targetCalendar.id, calendarName: targetCalendar.name };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -315,7 +315,7 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
       }
 
       await calendar.modifyItem(newItem, oldItem);
-      return { success: true, updated: changes };
+      return { success: true, updated: changes, calendarId: calendar.id, calendarName: calendar.name };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -343,7 +343,7 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
       }
 
       await calendar.deleteItem(item);
-      return { success: true, deleted: eventId };
+      return { success: true, deleted: eventId, calendarId: calendar.id, calendarName: calendar.name };
     } catch (e) {
       return { error: e.toString() };
     }

@@ -33,6 +33,7 @@
       "type": "object",
       "properties": {
         "query": { "type": "string", "description": "Text to search in subject, author, or recipients (default: empty, matches all)" },
+        "accountId": { "type": "string", "description": "Account ID (from listAccounts) to limit search to a single account. Ignored if folderPath is provided." },
         "folderPath": { "type": "string", "description": "Folder URI to limit search to that folder and its subfolders" },
         "startDate": { "type": "string", "description": "Filter messages on or after this ISO 8601 date" },
         "endDate": { "type": "string", "description": "Filter messages on or before this ISO 8601 date" },
