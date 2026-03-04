@@ -28,7 +28,7 @@
   {
     "name": "searchMessages",
     "title": "Search Mail",
-    "description": "Search and list messages by query, date range, folder, read/flagged status. Use getMessage to read full content.",
+    "description": "Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them. Results include threadId for conversation grouping (null on EWS accounts). Use getMessage to read full content.",
     "inputSchema": {
       "type": "object",
       "properties": {
