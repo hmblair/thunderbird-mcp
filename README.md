@@ -1,6 +1,6 @@
 # Thunderbird MCP
 
-[![24 Tools](https://img.shields.io/badge/24_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
+[![23 Tools](https://img.shields.io/badge/23_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
 [![Localhost Only](https://img.shields.io/badge/Privacy-localhost_only-green.svg)](#security)
 [![Thunderbird](https://img.shields.io/badge/Thunderbird-102%2B-0a84ff.svg)](https://www.thunderbird.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](LICENSE)
