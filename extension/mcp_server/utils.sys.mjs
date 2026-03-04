@@ -79,8 +79,6 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     const root = account?.incomingServer?.rootFolder;
     if (!root) return null;
 
-    let fallback = null;
-    const TRASH_NAMES = ["trash", "deleted items"];
     const stack = [root];
     while (stack.length > 0) {
       const current = stack.pop();
@@ -89,16 +87,13 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
           return current;
         }
       } catch {}
-      if (!fallback && current?.prettyName && TRASH_NAMES.includes(current.prettyName.toLowerCase())) {
-        fallback = current;
-      }
       try {
         if (current?.hasSubFolders) {
           for (const sf of current.subFolders) stack.push(sf);
         }
       } catch {}
     }
-    return fallback;
+    return null;
   }
 
   function findJunkFolder(account) {
@@ -106,8 +101,6 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     const root = account?.incomingServer?.rootFolder;
     if (!root) return null;
 
-    let fallback = null;
-    const JUNK_NAMES = ["junk", "junk email", "spam"];
     const stack = [root];
     while (stack.length > 0) {
       const current = stack.pop();
@@ -116,16 +109,13 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
           return current;
         }
       } catch {}
-      if (!fallback && current?.prettyName && JUNK_NAMES.includes(current.prettyName.toLowerCase())) {
-        fallback = current;
-      }
       try {
         if (current?.hasSubFolders) {
           for (const sf of current.subFolders) stack.push(sf);
         }
       } catch {}
     }
-    return fallback;
+    return null;
   }
 
   function findDraftsFolder(account) {
