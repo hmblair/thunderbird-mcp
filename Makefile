@@ -1,11 +1,10 @@
-VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+VERSION := $(shell node -p "require('./package.json').version")
 
-.PHONY: build clean
+.PHONY: build clean tag
 
 build: dist/thunderbird-mcp.xpi
 
 dist/thunderbird-mcp.xpi: extension/**/*
-	@test -n "$(VERSION)" || { echo "Error: no git tag found. Create one with: git tag v0.1.0" >&2; exit 1; }
 	@echo "Building Thunderbird MCP extension v$(VERSION)..."
 	@rm -rf dist/stage
 	@mkdir -p dist/stage
@@ -14,6 +13,10 @@ dist/thunderbird-mcp.xpi: extension/**/*
 	@cd dist/stage && zip -r ../thunderbird-mcp.xpi . -x "*.DS_Store" -x "*.git*"
 	@rm -rf dist/stage
 	@echo "Built: dist/thunderbird-mcp.xpi"
+
+tag:
+	@git tag -a "v$(VERSION)" -m "v$(VERSION)"
+	@echo "Tagged v$(VERSION)"
 
 clean:
 	rm -rf dist/
