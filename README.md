@@ -1,25 +1,13 @@
 # Thunderbird MCP
 
-[![Tools](https://img.shields.io/badge/20_Tools-email%2C_compose%2C_filters%2C_calendar-blue.svg)](#what-you-can-do)
+[![25 Tools](https://img.shields.io/badge/25_Tools-mail%2C_calendar%2C_tasks%2C_contacts-blue.svg)](#tools)
 [![Localhost Only](https://img.shields.io/badge/Privacy-localhost_only-green.svg)](#security)
 [![Thunderbird](https://img.shields.io/badge/Thunderbird-102%2B-0a84ff.svg)](https://www.thunderbird.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-grey.svg)](LICENSE)
 
-Give your AI assistant full access to Thunderbird — search mail, compose messages, manage filters, and organize your inbox. All through the [Model Context Protocol](https://modelcontextprotocol.io/).
-
-<p align="center">
-  <img src="docs/demo.gif" alt="Thunderbird MCP Demo" width="600">
-</p>
+Give your AI assistant full access to Thunderbird — read and organize mail, manage calendars and tasks, compose messages, and look up contacts. All through the [Model Context Protocol](https://modelcontextprotocol.io/).
 
 > Inspired by [bb1/thunderbird-mcp](https://github.com/bb1/thunderbird-mcp). Rewritten from scratch with a bundled HTTP server, proper MIME decoding, and UTF-8 handling throughout.
-
----
-
-## Why?
-
-Thunderbird has no official API for AI tools. Your AI assistant can't read your email, can't help you draft replies, can't organize your inbox. This extension fixes that — it exposes 20 tools over MCP so any compatible AI (Claude, GPT, local models) can work with your mail the way you'd expect.
-
-Compose tools open a review window before sending. **Nothing gets sent without your approval.**
 
 ---
 
@@ -35,7 +23,7 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 
 ---
 
-## What you can do
+## Tools
 
 ### Mail
 
@@ -43,12 +31,11 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 |------|-------------|
 | `listAccounts` | List all email accounts and their identities |
 | `listFolders` | Browse folder tree with message counts — filter by account or subtree |
-| `searchMessages` | Find emails by subject, sender, recipient, date range, read status, or within a specific folder |
+| `searchMessages` | Find emails by subject, sender, recipient, date range, read/flagged status |
 | `getMessage` | Read full email content with optional attachment saving to disk |
-| `getRecentMessages` | Get recent messages with date and unread filtering |
-| `updateMessage` | Mark read/unread, flag/unflag, move between folders, or trash |
-| `deleteMessages` | Delete messages — drafts are safely moved to Trash |
-| `createFolder` | Create new subfolders to organize your mail |
+| `getRecentMessages` | Get recent messages with date, unread, and flagged filtering |
+| `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
+| `deleteMessages` | Delete messages (drafts are safely moved to Trash) |
 
 ### Compose
 
@@ -60,26 +47,39 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 
 All compose tools open a window for you to review and edit before sending.
 
-### Filters
+### Folders
 
 | Tool | Description |
 |------|-------------|
-| `listFilters` | List all filter rules with human-readable conditions and actions |
-| `createFilter` | Create filters with structured conditions (from, subject, date...) and actions (move, tag, flag...) |
-| `updateFilter` | Modify a filter's name, enabled state, conditions, or actions |
-| `deleteFilter` | Remove a filter by index |
-| `reorderFilters` | Change filter execution priority |
-| `applyFilters` | Run filters on a folder on demand — let your AI organize your inbox |
+| `createFolder` | Create new subfolders to organize your mail |
+| `renameFolder` | Rename an existing mail folder |
+| `deleteFolder` | Delete a folder (moves to Trash by default) |
+| `moveFolder` | Move a folder under a different parent |
 
-Full control over Thunderbird's message filters. Changes persist immediately. Your AI can create sorting rules, adjust priorities, and run them on existing mail.
-
-### Contacts & Calendar
+### Calendar
 
 | Tool | Description |
 |------|-------------|
-| `searchContacts` | Look up contacts from your address books |
 | `listCalendars` | List all calendars (local and CalDAV) |
-| `createEvent` | Open a pre-filled calendar event dialog for review |
+| `listEvents` | List events within a date range |
+| `createEvent` | Create an event — opens a review dialog by default, or add directly with `skipReview` |
+| `updateEvent` | Update an event's title, dates, location, or description |
+| `deleteEvent` | Delete a calendar event |
+
+### Tasks
+
+| Tool | Description |
+|------|-------------|
+| `listTasks` | List todos from calendars, filtered by date range and completion status |
+| `createTask` | Create a todo — opens a review dialog by default, or add directly with `skipReview` |
+| `updateTask` | Update a task's title, due date, priority, status, or completion percentage |
+| `deleteTask` | Delete a task |
+
+### Contacts
+
+| Tool | Description |
+|------|-------------|
+| `searchContacts` | Look up contacts by name or email address |
 
 ---
 
@@ -91,7 +91,7 @@ Full control over Thunderbird's message filters. Changes persist immediately. Yo
 git clone https://github.com/TKasperczyk/thunderbird-mcp.git
 ```
 
-Install `dist/thunderbird-mcp.xpi` in Thunderbird (Tools > Add-ons > Install from File), then restart. A pre-built XPI is included in the repo — no build step needed.
+Install `dist/thunderbird-mcp.xpi` in Thunderbird (Tools > Add-ons > Install from File), then restart.
 
 ### 2. Configure your MCP client
 
@@ -135,6 +135,9 @@ The extension listens on `localhost:8765` only. No remote access. However, any l
 # Build the extension
 ./scripts/build.sh
 
+# Install to your Thunderbird profile
+./scripts/install.sh
+
 # Test the HTTP API directly
 curl -X POST http://localhost:8765 \
   -H "Content-Type: application/json" \
@@ -144,7 +147,7 @@ curl -X POST http://localhost:8765 \
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | node mcp-bridge.cjs
 ```
 
-After changing extension code: remove from Thunderbird, restart, reinstall the XPI, restart again. Thunderbird caches aggressively.
+After changing extension code: rebuild the XPI, reinstall in Thunderbird, and restart.
 
 ---
 
@@ -158,7 +161,8 @@ thunderbird-mcp/
 │   ├── background.js           # Extension entry point
 │   ├── httpd.sys.mjs           # Embedded HTTP server (Mozilla)
 │   └── mcp_server/
-│       ├── api.js              # All 20 MCP tools
+│       ├── api.js              # All 25 MCP tools
+│       ├── tools.json          # Tool definitions and schemas
 │       └── schema.json
 └── scripts/
     ├── build.sh
