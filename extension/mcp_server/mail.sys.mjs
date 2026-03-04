@@ -144,6 +144,8 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     const normalizedSortOrder = sortOrder === "asc" ? "asc" : "desc";
     const snippetLen = Number.isFinite(Number(snippetLength)) && Number(snippetLength) > 0 ? Math.floor(Number(snippetLength)) : 0;
 
+    const seenMsgs = new Set();
+
     function searchFolder(folder) {
       if (results.length >= SEARCH_COLLECTION_CAP) return;
 
@@ -160,6 +162,10 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
         for (const msgHdr of db.enumerateMessages()) {
           if (results.length >= SEARCH_COLLECTION_CAP) break;
+
+          const dedupKey = `${folder.URI}\t${msgHdr.messageId}`;
+          if (seenMsgs.has(dedupKey)) continue;
+          seenMsgs.add(dedupKey);
 
           const msgDateTs = msgHdr.date || 0;
           if (startDateTs !== null && msgDateTs < startDateTs) continue;
@@ -562,6 +568,8 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     );
     const snippetLen = Number.isFinite(Number(snippetLength)) && Number(snippetLength) > 0 ? Math.floor(Number(snippetLength)) : 0;
 
+    const seenRecentMsgs = new Set();
+
     function collectFromFolder(folder) {
       if (results.length >= SEARCH_COLLECTION_CAP) return;
 
@@ -571,6 +579,10 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
         for (const msgHdr of db.enumerateMessages()) {
           if (results.length >= SEARCH_COLLECTION_CAP) break;
+
+          const dedupKey = `${folder.URI}\t${msgHdr.messageId}`;
+          if (seenRecentMsgs.has(dedupKey)) continue;
+          seenRecentMsgs.add(dedupKey);
 
           const msgDateTs = msgHdr.date || 0;
           if (msgDateTs < cutoffTs) continue;
