@@ -118,6 +118,16 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             } catch (e) { mcpWarn("calendar module not available", e);
             }
 
+            function formatCalDateTime(dt) {
+              if (!dt) return null;
+              if (cal) {
+                const local = dt.getInTimezone(cal.dtz.defaultTimezone);
+                const pad = (n) => String(n).padStart(2, "0");
+                return `${local.year}-${pad(local.month + 1)}-${pad(local.day)}T${pad(local.hour)}:${pad(local.minute)}:${pad(local.second)}`;
+              }
+              return new Date(dt.nativeTime / 1000).toISOString();
+            }
+
             /**
              * CRITICAL: Must specify { charset: "UTF-8" } or emojis/special chars
              * will be corrupted. NetUtil defaults to Latin-1.
@@ -770,14 +780,8 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 const FILTER_EVENT = 1 << 3;
 
                 function formatItem(item, calendar) {
-                  let start = null;
-                  let end = null;
-                  if (item.startDate) {
-                    start = new Date(item.startDate.nativeTime / 1000).toISOString();
-                  }
-                  if (item.endDate) {
-                    end = new Date(item.endDate.nativeTime / 1000).toISOString();
-                  }
+                  const start = formatCalDateTime(item.startDate);
+                  const end = formatCalDateTime(item.endDate);
                   return {
                     id: item.id,
                     calendarId: calendar.id,
@@ -1012,18 +1016,9 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             }
 
             function formatTodo(item, calendar) {
-              let entryDate = null;
-              let dueDate = null;
-              let completedDate = null;
-              if (item.entryDate) {
-                entryDate = new Date(item.entryDate.nativeTime / 1000).toISOString();
-              }
-              if (item.dueDate) {
-                dueDate = new Date(item.dueDate.nativeTime / 1000).toISOString();
-              }
-              if (item.completedDate) {
-                completedDate = new Date(item.completedDate.nativeTime / 1000).toISOString();
-              }
+              const entryDate = formatCalDateTime(item.entryDate);
+              const dueDate = formatCalDateTime(item.dueDate);
+              const completedDate = formatCalDateTime(item.completedDate);
               return {
                 id: item.id,
                 calendarId: calendar.id,
