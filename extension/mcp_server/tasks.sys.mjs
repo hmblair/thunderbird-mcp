@@ -1,6 +1,6 @@
 // tasks.sys.mjs — Task (todo) tools: list, create, update, delete
 
-export function createTaskHandlers({ Services, cal, CalTodo, utils }) {
+export function createTaskHandlers({ cal, CalTodo, utils }) {
   const { mcpWarn, parseDate, formatCalDateTime } = utils;
 
   async function getCalendarTodos(calendar, rangeStart, rangeEnd) {
@@ -109,16 +109,11 @@ export function createTaskHandlers({ Services, cal, CalTodo, utils }) {
   }
 
   async function createTask(args) {
-    const { title, dueDate, description, calendarId, priority, skipReview } = args;
+    const { title, dueDate, description, calendarId, priority } = args;
     if (!cal || !CalTodo) {
       return { error: "Calendar module not available" };
     }
     try {
-      const win = Services.wm.getMostRecentWindow("mail:3pane");
-      if (!win) {
-        return { error: "No Thunderbird window found" };
-      }
-
       const todo = new CalTodo();
       todo.title = title;
 
@@ -157,30 +152,8 @@ export function createTaskHandlers({ Services, cal, CalTodo, utils }) {
       }
 
       todo.calendar = targetCalendar;
-
-      if (skipReview) {
-        await targetCalendar.addItem(todo);
-        return { success: true, message: `Task "${title}" added to calendar "${targetCalendar.name}"` };
-      }
-
-      const dialogArgs = {
-        calendarEvent: todo,
-        calendar: targetCalendar,
-        mode: "new",
-        inTab: false,
-        onOk(item, calendar) {
-          calendar.addItem(item);
-        },
-      };
-
-      win.openDialog(
-        "chrome://calendar/content/calendar-event-dialog.xhtml",
-        "_blank",
-        "centerscreen,chrome,titlebar,toolbar,resizable",
-        dialogArgs
-      );
-
-      return { success: true, message: `Task dialog opened for "${title}" on calendar "${targetCalendar.name}"` };
+      await targetCalendar.addItem(todo);
+      return { success: true, message: `Task "${title}" added to calendar "${targetCalendar.name}"` };
     } catch (e) {
       return { error: e.toString() };
     }

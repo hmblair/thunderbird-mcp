@@ -1,6 +1,6 @@
 // calendar.sys.mjs — Calendar tools: list, create, update, delete events
 
-export function createCalendarHandlers({ Services, cal, CalEvent, utils }) {
+export function createCalendarHandlers({ cal, CalEvent, utils }) {
   const { mcpWarn, parseDate, formatCalDateTime } = utils;
 
   function listCalendars() {
@@ -48,16 +48,11 @@ export function createCalendarHandlers({ Services, cal, CalEvent, utils }) {
   }
 
   async function createEvent(args) {
-    const { title, startDate, endDate, location, description, calendarId, allDay, skipReview } = args;
+    const { title, startDate, endDate, location, description, calendarId, allDay } = args;
     if (!cal || !CalEvent) {
       return { error: "Calendar module not available" };
     }
     try {
-      const win = Services.wm.getMostRecentWindow("mail:3pane");
-      if (!win) {
-        return { error: "No Thunderbird window found" };
-      }
-
       const startJs = parseDate(startDate);
       if (isNaN(startJs.getTime())) {
         return { error: `Invalid startDate: ${startDate}` };
@@ -145,30 +140,8 @@ export function createCalendarHandlers({ Services, cal, CalEvent, utils }) {
       }
 
       event.calendar = targetCalendar;
-
-      if (skipReview) {
-        await targetCalendar.addItem(event);
-        return { success: true, message: `Event "${title}" added to calendar "${targetCalendar.name}"` };
-      }
-
-      const dialogArgs = {
-        calendarEvent: event,
-        calendar: targetCalendar,
-        mode: "new",
-        inTab: false,
-        onOk(item, calendar) {
-          calendar.addItem(item);
-        },
-      };
-
-      win.openDialog(
-        "chrome://calendar/content/calendar-event-dialog.xhtml",
-        "_blank",
-        "centerscreen,chrome,titlebar,toolbar,resizable",
-        dialogArgs
-      );
-
-      return { success: true, message: `Event dialog opened for "${title}" on calendar "${targetCalendar.name}"` };
+      await targetCalendar.addItem(event);
+      return { success: true, message: `Event "${title}" added to calendar "${targetCalendar.name}"` };
     } catch (e) {
       return { error: e.toString() };
     }

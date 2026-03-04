@@ -80,7 +80,7 @@
   {
     "name": "createEvent",
     "title": "Create Event",
-    "description": "Create a calendar event. By default opens a review dialog; set skipReview to add directly.",
+    "description": "Create a calendar event.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -90,8 +90,7 @@
         "location": { "type": "string", "description": "Event location" },
         "description": { "type": "string", "description": "Event description" },
         "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars, defaults to first writable calendar)" },
-        "allDay": { "type": "boolean", "description": "Create an all-day event (default: false)" },
-        "skipReview": { "type": "boolean", "description": "If true, add the event directly without opening a review dialog (default: false)" }
+        "allDay": { "type": "boolean", "description": "Create an all-day event (default: false)" }
       },
       "required": ["title", "startDate"]
     }
@@ -161,7 +160,7 @@
   {
     "name": "createTask",
     "title": "Create Task",
-    "description": "Create a new task (todo). By default opens a review dialog; set skipReview to add directly.",
+    "description": "Create a new task (todo).",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -169,8 +168,7 @@
         "dueDate": { "type": "string", "description": "Due date/time in ISO 8601 format (optional)" },
         "description": { "type": "string", "description": "Task description (optional)" },
         "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars, defaults to first writable calendar)" },
-        "priority": { "type": "number", "description": "Priority 0-9 (0=undefined, 1=highest, 5=normal, 9=lowest)" },
-        "skipReview": { "type": "boolean", "description": "If true, add directly without opening a review dialog (default: false)" }
+        "priority": { "type": "number", "description": "Priority 0-9 (0=undefined, 1=highest, 5=normal, 9=lowest)" }
       },
       "required": ["title"]
     }

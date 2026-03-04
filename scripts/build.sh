@@ -8,19 +8,24 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 EXTENSION_DIR="$PROJECT_DIR/extension"
 DIST_DIR="$PROJECT_DIR/dist"
 
-# Read version from package.json (source of truth)
-VERSION=$(node -e "process.stdout.write(require('$PROJECT_DIR/package.json').version)")
+# Read version from the latest git tag (source of truth), stripping the leading "v"
+VERSION=$(git -C "$PROJECT_DIR" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+if [ -z "$VERSION" ]; then
+  echo "Error: no git tag found. Create one with: git tag v0.1.0" >&2
+  exit 1
+fi
 echo "Building Thunderbird MCP extension v${VERSION}..."
 
-# Inject version into manifest.json
-MANIFEST="$EXTENSION_DIR/manifest.json"
-TMP_MANIFEST=$(mktemp)
-node -e "
-  const m = require('$MANIFEST');
-  m.version = '$VERSION';
-  process.stdout.write(JSON.stringify(m, null, 2) + '\n');
-" > "$TMP_MANIFEST"
-mv "$TMP_MANIFEST" "$MANIFEST"
+# Inject version into manifest.json and package.json
+for JSON_FILE in "$EXTENSION_DIR/manifest.json" "$PROJECT_DIR/package.json"; do
+  TMP_FILE=$(mktemp)
+  node -e "
+    const m = require('$JSON_FILE');
+    m.version = '$VERSION';
+    process.stdout.write(JSON.stringify(m, null, 2) + '\n');
+  " > "$TMP_FILE"
+  mv "$TMP_FILE" "$JSON_FILE"
+done
 
 # Create dist directory
 mkdir -p "$DIST_DIR"
