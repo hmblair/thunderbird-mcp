@@ -1,0 +1,197 @@
+// utils.sys.mjs — Shared utilities for thunderbird-mcp modules
+
+export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
+
+  function mcpWarn(context, error) {
+    console.warn(`[thunderbird-mcp] ${context}:`, error?.message || error);
+  }
+
+  function parseDate(s) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+      const [y, m, d] = s.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date(s);
+  }
+
+  function formatCalDateTime(dt) {
+    if (!dt) return null;
+    if (cal) {
+      const local = dt.getInTimezone(cal.dtz.defaultTimezone);
+      const pad = (n) => String(n).padStart(2, "0");
+      return `${local.year}-${pad(local.month + 1)}-${pad(local.day)}T${pad(local.hour)}:${pad(local.minute)}:${pad(local.second)}`;
+    }
+    return new Date(dt.nativeTime / 1000).toISOString();
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function formatBodyHtml(body, isHtml) {
+    if (isHtml) {
+      let text = (body || "").replace(/\n/g, '');
+      text = [...text].map(c => c.codePointAt(0) > 127 ? `&#${c.codePointAt(0)};` : c).join('');
+      return text;
+    }
+    return escapeHtml(body || "").replace(/\n/g, '<br>');
+  }
+
+  function findIdentity(emailOrId) {
+    if (!emailOrId) return null;
+    const lowerInput = emailOrId.toLowerCase();
+    for (const account of MailServices.accounts.accounts) {
+      for (const identity of account.identities) {
+        if (identity.key === emailOrId || (identity.email || "").toLowerCase() === lowerInput) {
+          return identity;
+        }
+      }
+    }
+    return null;
+  }
+
+  function addAttachments(composeFields, attachments) {
+    const result = { added: 0, failed: [] };
+    if (!attachments || !Array.isArray(attachments)) return result;
+    for (const filePath of attachments) {
+      try {
+        const file = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+        file.initWithPath(filePath);
+        if (file.exists()) {
+          const attachment = Cc["@mozilla.org/messengercompose/attachment;1"]
+            .createInstance(Ci.nsIMsgAttachment);
+          attachment.url = Services.io.newFileURI(file).spec;
+          attachment.name = file.leafName;
+          composeFields.addAttachment(attachment);
+          result.added++;
+        } else {
+          result.failed.push(filePath);
+        }
+      } catch (e) { mcpWarn("attachment add", e);
+        result.failed.push(filePath);
+      }
+    }
+    return result;
+  }
+
+  function setComposeIdentity(msgComposeParams, from, fallbackServer) {
+    const identity = findIdentity(from);
+    if (identity) {
+      msgComposeParams.identity = identity;
+      return "";
+    }
+    // Fallback to default identity for the account
+    if (fallbackServer) {
+      const account = MailServices.accounts.findAccountForServer(fallbackServer);
+      if (account) msgComposeParams.identity = account.defaultIdentity;
+    } else {
+      const defaultAccount = MailServices.accounts.defaultAccount;
+      if (defaultAccount) msgComposeParams.identity = defaultAccount.defaultIdentity;
+    }
+    return from ? `unknown identity: ${from}, using default` : "";
+  }
+
+  function openFolder(folderPath) {
+    try {
+      const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+      if (!folder) {
+        return { error: `Folder not found: ${folderPath}` };
+      }
+
+      if (folder.server && folder.server.type === "imap") {
+        try {
+          folder.updateFolder(null);
+        } catch (e) { mcpWarn("IMAP folder refresh", e);
+        }
+      }
+
+      const db = folder.msgDatabase;
+      if (!db) {
+        return { error: "Could not access folder database" };
+      }
+
+      return { folder, db };
+    } catch (e) {
+      return { error: e.toString() };
+    }
+  }
+
+  function findTrashFolder(folder) {
+    const TRASH_FLAG = 0x00000100;
+    let account = null;
+    try {
+      account = MailServices.accounts.findAccountForServer(folder.server);
+    } catch (e) { mcpWarn("trash folder lookup", e);
+      return null;
+    }
+    const root = account?.incomingServer?.rootFolder;
+    if (!root) return null;
+
+    let fallback = null;
+    const TRASH_NAMES = ["trash", "deleted items"];
+    const stack = [root];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      try {
+        if (current && typeof current.getFlag === "function" && current.getFlag(TRASH_FLAG)) {
+          return current;
+        }
+      } catch {}
+      if (!fallback && current?.prettyName && TRASH_NAMES.includes(current.prettyName.toLowerCase())) {
+        fallback = current;
+      }
+      try {
+        if (current?.hasSubFolders) {
+          for (const sf of current.subFolders) stack.push(sf);
+        }
+      } catch {}
+    }
+    return fallback;
+  }
+
+  function findMessage(messageId, folderPath) {
+    const opened = openFolder(folderPath);
+    if (opened.error) return opened;
+
+    const { folder, db } = opened;
+    let msgHdr = null;
+
+    const hasDirectLookup = typeof db.getMsgHdrForMessageID === "function";
+    if (hasDirectLookup) {
+      try {
+        msgHdr = db.getMsgHdrForMessageID(messageId);
+      } catch (e) { mcpWarn("message ID lookup", e);
+        msgHdr = null;
+      }
+    }
+
+    if (!msgHdr) {
+      for (const hdr of db.enumerateMessages()) {
+        if (hdr.messageId === messageId) {
+          msgHdr = hdr;
+          break;
+        }
+      }
+    }
+
+    if (!msgHdr) {
+      return { error: `Message not found: ${messageId}` };
+    }
+
+    return { msgHdr, folder, db };
+  }
+
+  return {
+    mcpWarn,
+    parseDate,
+    formatCalDateTime,
+    escapeHtml,
+    formatBodyHtml,
+    findIdentity,
+    addAttachments,
+    setComposeIdentity,
+    openFolder,
+    findTrashFolder,
+    findMessage,
+  };
+}
