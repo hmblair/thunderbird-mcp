@@ -53,6 +53,14 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               "resource:///modules/MailServices.sys.mjs"
             );
 
+            // Read version from manifest
+            const manifestUri = Services.io.newURI("resource://thunderbird-mcp/manifest.json");
+            const manifestChannel = NetUtil.newChannel({ uri: manifestUri, loadUsingSystemPrincipal: true });
+            const manifestStream = manifestChannel.open();
+            const manifestJson = NetUtil.readInputStreamToString(manifestStream, manifestStream.available(), { charset: "UTF-8" });
+            manifestStream.close();
+            const SERVER_VERSION = JSON.parse(manifestJson).version;
+
             // Load tool definitions from shared JSON file
             let tools;
             try {
@@ -2454,7 +2462,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       result = {
                         protocolVersion: "2024-11-05",
                         capabilities: { tools: {} },
-                        serverInfo: { name: "thunderbird-mcp", version: "0.1.0" }
+                        serverInfo: { name: "thunderbird-mcp", version: SERVER_VERSION }
                       };
                       break;
                     case "resources/list":

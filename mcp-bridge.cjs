@@ -15,6 +15,7 @@ const path = require('path');
 const THUNDERBIRD_PORT = 8765;
 const REQUEST_TIMEOUT = 30000;
 const TOKEN_PATH = path.join(os.homedir(), '.thunderbird-mcp-token');
+const VERSION = require(path.join(__dirname, 'package.json')).version;
 
 /**
  * Tool definitions loaded from shared JSON file.
@@ -94,7 +95,7 @@ async function handleMessage(line) {
         result: {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'thunderbird-mcp', version: '1.0.0' }
+          serverInfo: { name: 'thunderbird-mcp', version: VERSION }
         }
       };
 
