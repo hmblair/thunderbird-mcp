@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, openFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId,
+    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -78,7 +78,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     }
 
     if (folderPath) {
-      const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+      const folder = resolveFolder(folderPath);
       if (!folder) {
         return { error: `Folder not found: ${folderPath}` };
       }
@@ -227,7 +227,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     }
 
     if (folderPath) {
-      const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+      const folder = resolveFolder(folderPath);
       if (!folder) {
         return { error: `Folder not found: ${folderPath}` };
       }
@@ -770,12 +770,12 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
           return { error: "Trash folder not found" };
         }
       } else if (moveTo) {
-        targetFolder = MailServices.folderLookup.getFolderForURL(moveTo);
+        targetFolder = resolveFolder(moveTo);
         if (!targetFolder) {
           return { error: `Folder not found: ${moveTo}` };
         }
       } else if (copyTo) {
-        targetFolder = MailServices.folderLookup.getFolderForURL(copyTo);
+        targetFolder = resolveFolder(copyTo);
         if (!targetFolder) {
           return { error: `Folder not found: ${copyTo}` };
         }

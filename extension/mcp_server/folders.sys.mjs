@@ -1,7 +1,7 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, findTrashFolder, findJunkFolder, getAccountId } = utils;
+  const { mcpWarn, resolveFolder, findTrashFolder, findJunkFolder, getAccountId } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
@@ -13,7 +13,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: "name must be a non-empty string" };
       }
 
-      const parent = MailServices.folderLookup.getFolderForURL(parentFolderPath);
+      const parent = resolveFolder(parentFolderPath);
       if (!parent) {
         return { error: `Parent folder not found: ${parentFolderPath}` };
       }
@@ -58,7 +58,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: "newName must be a non-empty string" };
       }
 
-      const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+      const folder = resolveFolder(folderPath);
       if (!folder) {
         return { error: `Folder not found: ${folderPath}` };
       }
@@ -83,7 +83,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: "folderPath must be a non-empty string" };
       }
 
-      const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+      const folder = resolveFolder(folderPath);
       if (!folder) {
         return { error: `Folder not found: ${folderPath}` };
       }
@@ -120,12 +120,12 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: "destinationParentPath must be a non-empty string" };
       }
 
-      const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+      const folder = resolveFolder(folderPath);
       if (!folder) {
         return { error: `Folder not found: ${folderPath}` };
       }
 
-      const destParent = MailServices.folderLookup.getFolderForURL(destinationParentPath);
+      const destParent = resolveFolder(destinationParentPath);
       if (!destParent) {
         return { error: `Destination folder not found: ${destinationParentPath}` };
       }

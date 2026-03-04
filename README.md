@@ -31,7 +31,7 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 |------|-------------|
 | `listAccounts` | List all email accounts and their identities |
 | `listFolders` | Browse folder tree with message counts — filter by account or subtree |
-| `searchMessages` | Search and list messages by query, date range, folder, read/flagged status, or just count them |
+| `searchMessages` | Search messages by query, date range, folder, account, read/flagged status, or just count them |
 | `getMessage` | Read full email content with optional attachment saving to disk |
 | `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
 | `deleteMessages` | Delete messages from a folder |
@@ -79,6 +79,25 @@ Drafts are saved directly to the Drafts folder. Supports new messages, replies (
 | Tool | Description |
 |------|-------------|
 | `searchContacts` | Look up contacts by name or email address |
+
+### Folder paths
+
+All tools that accept a `folderPath` (or `parentFolderPath`, `moveTo`, `copyTo`, `destinationParentPath`) support two formats:
+
+- **Full URI**: `ews://hmblair%40stanford.edu@outlook.office365.com/Inbox`
+- **Short path**: `account1/Inbox`, `account1/Sent Items`, `account1/1 - Now`
+
+Short paths use the format `accountId/FolderName/Subfolder`. Folder names are matched case-insensitively. Use `listAccounts` to get account IDs and `listFolders` to see folder names.
+
+### Operation receipts
+
+All mutation tools return structured receipts so you can verify operations actually took effect:
+
+- **`deleteMessages`** returns `deleted`/`failed` arrays (verified against the database), `countBefore`/`countAfter`, and `accountId`
+- **`updateMessage`** verifies flag/read changes and sets `success: false` if verification fails
+- **`createDraft`** returns the `draftsFolder` URI, `accountId`, and message counts before/after
+- **`emptyTrash`/`emptyJunk`** return per-account breakdowns with message counts
+- All mail mutations include `accountId`; all calendar/task mutations include `calendarId` and `calendarName`
 
 ---
 

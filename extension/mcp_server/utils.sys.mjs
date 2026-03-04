@@ -45,7 +45,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
 
   function openFolder(folderPath) {
     try {
-      const folder = MailServices.folderLookup.getFolderForURL(folderPath);
+      const folder = resolveFolder(folderPath);
       if (!folder) {
         return { error: `Folder not found: ${folderPath}` };
       }
@@ -155,6 +155,51 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return fallback;
   }
 
+  function resolveFolder(input) {
+    if (!input || typeof input !== "string") return null;
+
+    // Full URI — use directly
+    if (input.includes("://")) {
+      return MailServices.folderLookup.getFolderForURL(input);
+    }
+
+    // Short form: "accountId/Folder/Subfolder" or "accountId/Folder"
+    const slashIdx = input.indexOf("/");
+    if (slashIdx < 1) return null;
+
+    const accountKey = input.substring(0, slashIdx);
+    const pathParts = input.substring(slashIdx + 1).split("/").filter(Boolean);
+    if (pathParts.length === 0) return null;
+
+    let account = null;
+    for (const a of MailServices.accounts.accounts) {
+      if (a.key === accountKey) { account = a; break; }
+    }
+    if (!account) return null;
+
+    const root = account.incomingServer?.rootFolder;
+    if (!root) return null;
+
+    // Walk folder tree matching each path segment by prettyName (case-insensitive)
+    let current = root;
+    for (const segment of pathParts) {
+      const lower = segment.toLowerCase();
+      let found = null;
+      try {
+        for (const sub of current.subFolders) {
+          if ((sub.prettyName || "").toLowerCase() === lower ||
+              (sub.name || "").toLowerCase() === lower) {
+            found = sub;
+            break;
+          }
+        }
+      } catch {}
+      if (!found) return null;
+      current = found;
+    }
+    return current;
+  }
+
   function getAccountId(folder) {
     try {
       return MailServices.accounts.findAccountForServer(folder.server)?.key || null;
@@ -201,6 +246,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     findIdentity,
     findJunkFolder,
     openFolder,
+    resolveFolder,
     findTrashFolder,
     findDraftsFolder,
     getAccountId,
