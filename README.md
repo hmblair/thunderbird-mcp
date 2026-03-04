@@ -109,7 +109,7 @@ Requires [Thunderbird](https://www.thunderbird.net/) 115 or later.
 ### 1. Install the extension
 
 ```bash
-git clone https://github.com/TKasperczyk/thunderbird-mcp.git
+git clone https://github.com/hmblair/thunderbird-mcp.git
 ```
 
 Build and install the extension:
