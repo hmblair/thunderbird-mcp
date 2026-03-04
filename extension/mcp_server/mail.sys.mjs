@@ -213,8 +213,14 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             continue;
           }
 
+          let threadId = null;
+          try {
+            const thread = db.getThreadContainingMsgHdr(msgHdr);
+            if (thread && thread.threadKey < 0xFFFFFFFE) threadId = thread.threadKey;
+          } catch {}
           const entry = {
             id: msgHdr.messageId,
+            threadId,
             subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
             author: msgHdr.mime2DecodedAuthor || msgHdr.author,
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
