@@ -124,7 +124,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function searchMessages(args) {
-    const { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith } = args;
+    const { query, folderPath, folderPaths, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith } = args;
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
     const hasQuery = !!lowerQuery;
@@ -258,6 +258,15 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         return { error: `Folder not found: ${folderPath}` };
       }
       searchFolder(folder);
+    } else if (Array.isArray(folderPaths) && folderPaths.length > 0) {
+      for (const fp of folderPaths) {
+        const folder = resolveFolder(fp);
+        if (!folder) {
+          return { error: `Folder not found: ${fp}` };
+        }
+        searchFolder(folder);
+        if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
+      }
     } else if (accountId) {
       const target = resolveAccount(accountId);
       if (!target) {
