@@ -14,14 +14,20 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return new Date(s);
   }
 
+  const pad2 = (n) => String(n).padStart(2, "0");
+
+  function formatLocalJsDate(date) {
+    if (!date) return null;
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+  }
+
   function formatCalDateTime(dt) {
     if (!dt) return null;
     if (cal) {
       const local = dt.getInTimezone(cal.dtz.defaultTimezone);
-      const pad = (n) => String(n).padStart(2, "0");
-      return `${local.year}-${pad(local.month + 1)}-${pad(local.day)}T${pad(local.hour)}:${pad(local.minute)}:${pad(local.second)}`;
+      return `${local.year}-${pad2(local.month + 1)}-${pad2(local.day)}T${pad2(local.hour)}:${pad2(local.minute)}:${pad2(local.second)}`;
     }
-    return new Date(dt.nativeTime / 1000).toISOString();
+    return formatLocalJsDate(new Date(dt.nativeTime / 1000));
   }
 
   function escapeHtml(s) {
@@ -185,6 +191,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     mcpWarn,
     parseDate,
     formatCalDateTime,
+    formatLocalJsDate,
     escapeHtml,
     formatBodyHtml,
     findIdentity,

@@ -81,11 +81,11 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
           if (startDate || endDate) {
             const dueMs = item.dueDate ? item.dueDate.nativeTime / 1000 : null;
             if (startDate && dueMs) {
-              const startMs = new Date(startDate).getTime();
+              const startMs = parseDate(startDate).getTime();
               if (!isNaN(startMs) && dueMs < startMs) continue;
             }
             if (endDate && dueMs) {
-              const endMs = new Date(endDate).getTime();
+              const endMs = parseDate(endDate).getTime();
               if (!isNaN(endMs) && dueMs > endMs) continue;
             }
           }

@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, openFolder, findMessage, findTrashFolder,
+    mcpWarn, openFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -131,8 +131,8 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
     const hasQuery = !!lowerQuery;
-    const parsedStartDate = startDate ? new Date(startDate).getTime() : NaN;
-    const parsedEndDate = endDate ? new Date(endDate).getTime() : NaN;
+    const parsedStartDate = startDate ? parseDate(startDate).getTime() : NaN;
+    const parsedEndDate = endDate ? parseDate(endDate).getTime() : NaN;
     const startDateTs = Number.isFinite(parsedStartDate) ? parsedStartDate * 1000 : null;
     const endDateOffset = endDate && !endDate.includes("T") ? 86400000 : 0;
     const endDateTs = Number.isFinite(parsedEndDate) ? (parsedEndDate + endDateOffset) * 1000 : null;
@@ -184,7 +184,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             author: msgHdr.mime2DecodedAuthor || msgHdr.author,
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
             ccList: msgHdr.ccList,
-            date: msgHdr.date ? new Date(msgHdr.date / 1000).toISOString() : null,
+            date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
             folder: folder.prettyName,
             folderPath: folder.URI,
             read: msgHdr.isRead,
@@ -365,7 +365,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             author: msgHdr.mime2DecodedAuthor || msgHdr.author,
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
             ccList: msgHdr.ccList,
-            date: msgHdr.date ? new Date(msgHdr.date / 1000).toISOString() : null,
+            date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
             body,
             bodyIsHtml,
             attachments
@@ -582,7 +582,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
             author: msgHdr.mime2DecodedAuthor || msgHdr.author,
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
-            date: msgHdr.date ? new Date(msgHdr.date / 1000).toISOString() : null,
+            date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
             folder: folder.prettyName,
             folderPath: folder.URI,
             read: msgHdr.isRead,

@@ -2,7 +2,7 @@
 
 export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUtils, utils }) {
   const {
-    mcpWarn, escapeHtml, formatBodyHtml, findMessage, addAttachments, setComposeIdentity,
+    mcpWarn, escapeHtml, formatBodyHtml, findMessage, addAttachments, setComposeIdentity, formatLocalJsDate,
   } = utils;
 
   function composeMail(args) {
@@ -122,7 +122,7 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
             composeFields.references = `<${messageId}>`;
             composeFields.setHeader("In-Reply-To", `<${messageId}>`);
 
-            const dateStr = msgHdr.date ? new Date(msgHdr.date / 1000).toLocaleString() : "";
+            const dateStr = msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : "";
             const author = msgHdr.mime2DecodedAuthor || msgHdr.author || "";
             const quotedLines = originalBody.split('\n').map(line =>
               `&gt; ${escapeHtml(line)}`
@@ -200,7 +200,7 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
               }
             }
 
-            const dateStr = msgHdr.date ? new Date(msgHdr.date / 1000).toLocaleString() : "";
+            const dateStr = msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : "";
             const fwdAuthor = msgHdr.mime2DecodedAuthor || msgHdr.author || "";
             const fwdSubject = msgHdr.mime2DecodedSubject || msgHdr.subject || "";
             const fwdRecipients = msgHdr.mime2DecodedRecipients || msgHdr.recipients || "";

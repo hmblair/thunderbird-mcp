@@ -163,11 +163,11 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
         targets = [found];
       }
 
-      const startJs = startDate ? new Date(startDate) : new Date();
+      const startJs = startDate ? parseDate(startDate) : new Date();
       if (isNaN(startJs.getTime())) {
         return { error: `Invalid startDate: ${startDate}` };
       }
-      const endJs = endDate ? new Date(endDate) : new Date(startJs.getTime() + 30 * 86400000);
+      const endJs = endDate ? parseDate(endDate) : new Date(startJs.getTime() + 30 * 86400000);
       if (isNaN(endJs.getTime())) {
         return { error: `Invalid endDate: ${endDate}` };
       }
