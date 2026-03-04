@@ -651,35 +651,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         return { error: "No matching messages found" };
       }
 
-      const countBefore = folder.getTotalMessages(false);
-
       folder.deleteMessages(found, null, false, true, null, false);
 
-      // Verify which messages were actually deleted
-      const deleted = [];
-      const failed = [];
-      for (const hdr of found) {
-        let stillExists = false;
-        try {
-          const hasDirectLookup = typeof db.getMsgHdrForMessageID === "function";
-          if (hasDirectLookup) {
-            stillExists = !!db.getMsgHdrForMessageID(hdr.messageId);
-          } else {
-            for (const h of db.enumerateMessages()) {
-              if (h.messageId === hdr.messageId) { stillExists = true; break; }
-            }
-          }
-        } catch {}
-        if (stillExists) failed.push(hdr.messageId);
-        else deleted.push(hdr.messageId);
-      }
-
-      const countAfter = folder.getTotalMessages(false);
       const result = {
-        deleted, failed,
+        message: `Requested deletion of ${found.length} message(s)`,
+        requested: found.map(h => h.messageId),
         accountId: getAccountId(folder),
         folder: folder.URI,
-        countBefore, countAfter,
       };
       if (notFound.length > 0) result.notFound = notFound;
       return result;
@@ -755,20 +733,15 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       }
 
       const actions = [];
-      let success = true;
 
       if (read !== undefined) {
         for (const hdr of foundHdrs) hdr.markRead(read);
-        const failedCount = foundHdrs.filter(h => h.isRead !== read).length;
-        if (failedCount > 0) success = false;
-        actions.push({ type: "read", value: read, failed: failedCount || undefined });
+        actions.push({ type: "read", value: read });
       }
 
       if (flagged !== undefined) {
         for (const hdr of foundHdrs) hdr.markFlagged(flagged);
-        const failedCount = foundHdrs.filter(h => h.isFlagged !== flagged).length;
-        if (failedCount > 0) success = false;
-        actions.push({ type: "flagged", value: flagged, failed: failedCount || undefined });
+        actions.push({ type: "flagged", value: flagged });
       }
 
       if (addTags || removeTags) {
@@ -813,7 +786,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         actions.push({ type: isCopy ? "copy" : "move", to: targetFolder.URI });
       }
 
-      const result = { success, updated: foundHdrs.length, actions, accountId: getAccountId(folder) };
+      const result = { message: `Requested update of ${foundHdrs.length} message(s)`, updated: foundHdrs.length, actions, accountId: getAccountId(folder) };
       if (notFound.length > 0) result.notFound = notFound;
       return result;
     } catch (e) {

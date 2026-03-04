@@ -34,8 +34,7 @@ export function createFolderHandlers({ MailServices, utils }) {
       }
 
       return {
-        success: true,
-        message: `Folder "${name}" created`,
+        message: `Requested creation of folder "${name}"`,
         path: newPath,
         accountId: getAccountId(parent),
       };
@@ -66,8 +65,7 @@ export function createFolderHandlers({ MailServices, utils }) {
       folder.rename(newName, null);
 
       return {
-        success: true,
-        message: `Folder renamed to "${newName}"`,
+        message: `Requested rename of folder to "${newName}"`,
         path: folder.URI,
         accountId: getAccountId(folder),
       };
@@ -96,14 +94,14 @@ export function createFolderHandlers({ MailServices, utils }) {
       const accountId = getAccountId(folder);
       if (permanent) {
         parent.propagateDelete(folder, true, null);
-        return { success: true, message: `Folder permanently deleted`, accountId };
+        return { message: `Requested permanent deletion of folder`, accountId };
       } else {
         const trashFolder = findTrashFolder(folder);
         if (!trashFolder) {
           return { error: "Trash folder not found" };
         }
         parent.propagateDelete(folder, false, null);
-        return { success: true, message: `Folder moved to Trash`, accountId };
+        return { message: `Requested move of folder to Trash`, accountId };
       }
     } catch (e) {
       return { error: e.toString() };
@@ -133,8 +131,7 @@ export function createFolderHandlers({ MailServices, utils }) {
       MailServices.copy.copyFolder(folder, destParent, true, null, null);
 
       return {
-        success: true,
-        message: `Folder moved to "${destParent.prettyName || destParent.name || destinationParentPath}"`,
+        message: `Requested move of folder to "${destParent.prettyName || destParent.name || destinationParentPath}"`,
         accountId: getAccountId(folder),
       };
     } catch (e) {
@@ -159,17 +156,15 @@ export function createFolderHandlers({ MailServices, utils }) {
         if (!root) continue;
         const trash = findTrashFolder({ server: account.incomingServer });
         if (trash) {
-          const countBefore = trash.getTotalMessages(false);
           trash.emptyTrash(null);
-          const countAfter = trash.getTotalMessages(false);
-          results.push({ accountId: account.key, folder: trash.URI, messagesDeleted: countBefore - countAfter, countBefore, countAfter });
+          results.push({ accountId: account.key, folder: trash.URI });
         }
       }
 
       if (results.length === 0) {
         return { error: "No Trash folders found" };
       }
-      return { success: true, accounts: results };
+      return { message: "Requested emptying of Trash", accounts: results };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -197,18 +192,16 @@ export function createFolderHandlers({ MailServices, utils }) {
             for (const hdr of db.enumerateMessages()) msgs.push(hdr);
           }
         } catch {}
-        const countBefore = msgs.length;
         if (msgs.length > 0) {
           junk.deleteMessages(msgs, null, true, false, null, false);
         }
-        const countAfter = junk.getTotalMessages(false);
-        results.push({ accountId: account.key, folder: junk.URI, messagesDeleted: countBefore - countAfter, countBefore, countAfter });
+        results.push({ accountId: account.key, folder: junk.URI, requestedDeletion: msgs.length });
       }
 
       if (results.length === 0) {
         return { error: "No Junk folders found" };
       }
-      return { success: true, accounts: results };
+      return { message: "Requested emptying of Junk", accounts: results };
     } catch (e) {
       return { error: e.toString() };
     }

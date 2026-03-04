@@ -153,7 +153,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
 
       todo.calendar = targetCalendar;
       await targetCalendar.addItem(todo);
-      return { success: true, message: `Task "${title}" added to calendar "${targetCalendar.name}"`, calendarId: targetCalendar.id, calendarName: targetCalendar.name };
+      return { message: `Requested creation of task "${title}" on calendar "${targetCalendar.name}"`, calendarId: targetCalendar.id, calendarName: targetCalendar.name };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -230,7 +230,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       }
 
       await calendar.modifyItem(newItem, oldItem);
-      return { success: true, updated: changes, calendarId: calendar.id, calendarName: calendar.name };
+      return { message: `Requested update of task`, updated: changes, calendarId: calendar.id, calendarName: calendar.name };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -251,7 +251,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       }
 
       await calendar.deleteItem(item);
-      return { success: true, deleted: taskId, calendarId: calendar.id, calendarName: calendar.name };
+      return { message: `Requested deletion of task`, deleted: taskId, calendarId: calendar.id, calendarName: calendar.name };
     } catch (e) {
       return { error: e.toString() };
     }

@@ -258,14 +258,12 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                   attachments: attResult.attachments,
                 });
 
-                const countBefore = draftsFolder.getTotalMessages(false);
                 saveDraftToFolder(mime, draftsFolder);
-                const countAfter = draftsFolder.getTotalMessages(false);
-                let msg = "Forward draft saved to Drafts folder";
+                let msg = "Requested save of forward draft to Drafts folder";
                 if (attResult.failed.length > 0) {
                   msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
                 }
-                resolve({ success: true, message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder), countBefore, countAfter });
+                resolve({ message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder) });
 
               } else {
                 // --- Reply mode ---
@@ -312,14 +310,12 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                   attachments: attResult.attachments,
                 });
 
-                const countBefore = draftsFolder.getTotalMessages(false);
                 saveDraftToFolder(mime, draftsFolder);
-                const countAfter = draftsFolder.getTotalMessages(false);
-                let msg = "Reply draft saved to Drafts folder";
+                let msg = "Requested save of reply draft to Drafts folder";
                 if (attResult.failed.length > 0) {
                   msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
                 }
-                resolve({ success: true, message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder), countBefore, countAfter });
+                resolve({ message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder) });
               }
             } catch (e) {
               resolve({ error: e.toString() });
@@ -347,14 +343,12 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
         attachments: attResult.attachments,
       });
 
-      const countBefore = draftsFolder.getTotalMessages(false);
       saveDraftToFolder(mime, draftsFolder);
-      const countAfter = draftsFolder.getTotalMessages(false);
-      let msg = "Draft saved to Drafts folder";
+      let msg = "Requested save of draft to Drafts folder";
       if (attResult.failed.length > 0) {
         msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
       }
-      return { success: true, message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder), countBefore, countAfter };
+      return { message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder) };
     } catch (e) {
       return { error: e.toString() };
     }
