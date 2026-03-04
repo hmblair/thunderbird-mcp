@@ -49,18 +49,6 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
 
   // ── Handlers ──────────────────────────────────────────────────────
 
-  function listFeedAccounts() {
-    if (!FeedUtils) {
-      return { error: "Feed module not available" };
-    }
-    const rootFolders = FeedUtils.getAllRssServerRootFolders();
-    return rootFolders.map(rf => ({
-      accountId: rf.server.key,
-      name: rf.server.prettyName,
-      rootFolderURI: rf.URI,
-    }));
-  }
-
   function createFeedAccount(args) {
     if (!FeedUtils) {
       return { error: "Feed module not available" };
@@ -106,7 +94,30 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
     return allFeeds;
   }
 
-  function subscribeFeed(args) {
+  /**
+   * Wait for any pending feed downloads to finish before subscribing,
+   * since FeedUtils.subscribeToFeed silently aborts if downloads are
+   * already in progress.
+   */
+  function waitForPendingDownloads(timeoutMs = 30000) {
+    return new Promise((resolve, reject) => {
+      const start = Date.now();
+      function check() {
+        if (FeedUtils.progressNotifier.mNumPendingFeedDownloads <= 0) {
+          resolve();
+          return;
+        }
+        if (Date.now() - start > timeoutMs) {
+          reject(new Error("Timed out waiting for pending feed downloads to finish"));
+          return;
+        }
+        Services.tm.dispatchToMainThread({ run: check });
+      }
+      check();
+    });
+  }
+
+  async function subscribeFeed(args) {
     if (!FeedUtils) {
       return { error: "Feed module not available" };
     }
@@ -137,6 +148,13 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
       if (FeedUtils.feedAlreadyExists(normalizedUrl, folder.server)) {
         return { error: "Feed is already subscribed in this account" };
       }
+    }
+
+    // Wait for any in-progress downloads to finish first
+    try {
+      await waitForPendingDownloads();
+    } catch (e) {
+      return { error: e.message };
     }
 
     FeedUtils.subscribeToFeed(url, folder);
@@ -182,20 +200,27 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
       return { error: `Feed not found: ${url}` };
     }
 
-    // Construct a Feed object for deletion
-    const destFolder = MailServices.folderLookup.getFolderForURL(targetSub.destFolder);
-    if (!destFolder) {
-      return { error: `Feed destination folder not found: ${targetSub.destFolder}` };
-    }
+    // If the feed never successfully subscribed (no destFolder), just remove
+    // it from the database directly.
+    const destFolder = targetSub.destFolder
+      ? MailServices.folderLookup.getFolderForURL(targetSub.destFolder)
+      : null;
 
-    const { Feed } = ChromeUtils.importESModule("resource:///modules/Feed.sys.mjs");
-    const feed = new Feed(url, destFolder);
-    FeedUtils.deleteFeed(feed);
+    if (destFolder) {
+      const { Feed } = ChromeUtils.importESModule("resource:///modules/Feed.sys.mjs");
+      const feed = new Feed(url, destFolder);
+      FeedUtils.deleteFeed(feed);
 
-    // Also remove the folder if no other feeds use it
-    const remainingUrls = FeedUtils.getFeedUrlsInFolder(destFolder);
-    if (!remainingUrls || remainingUrls.length === 0) {
-      destFolder.parent.propagateDelete(destFolder, true, null);
+      // Also remove the folder if no other feeds use it
+      const remainingUrls = FeedUtils.getFeedUrlsInFolder(destFolder);
+      if (!remainingUrls || remainingUrls.length === 0) {
+        destFolder.parent.propagateDelete(destFolder, true, null);
+      }
+    } else {
+      // No folder — just remove the entry from the subscriptions database
+      const ds = FeedUtils.getSubscriptionsDS(targetServer);
+      ds.data = ds.data.filter(s => s.url !== url);
+      ds.saveSoon();
     }
 
     return {
@@ -245,7 +270,6 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
   }
 
   return {
-    listFeedAccounts,
     createFeedAccount,
     listFeeds,
     subscribeFeed,

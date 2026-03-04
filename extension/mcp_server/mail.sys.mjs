@@ -10,11 +10,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   const SEARCH_COLLECTION_CAP = 1000;
 
   function listAccounts(args) {
-    const { includeLocal } = args || {};
+    const { includeLocal, accountTypes } = args || {};
+    const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
     const accounts = [];
     for (const account of MailServices.accounts.accounts) {
       const server = account.incomingServer;
-      if (!includeLocal && server.type === "none") continue;
+      if (typeFilter && !typeFilter.has(server.type)) continue;
+      if (!typeFilter && !includeLocal && server.type === "none") continue;
       const identities = [];
       for (const identity of account.identities) {
         identities.push({
@@ -35,7 +37,8 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function listFolders(args) {
-    const { accountId, folderPath, includeLocal } = args;
+    const { accountId, folderPath, includeLocal, accountTypes } = args;
+    const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
     const results = [];
 
     function folderType(flags) {
@@ -108,7 +111,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
     for (const account of MailServices.accounts.accounts) {
       try {
-        if (!includeLocal && account.incomingServer.type === "none") continue;
+        const serverType = account.incomingServer.type;
+        if (typeFilter && !typeFilter.has(serverType)) continue;
+        if (!typeFilter && !includeLocal && serverType === "none") continue;
         const root = account.incomingServer.rootFolder;
         if (!root) continue;
         if (root.hasSubFolders) {
@@ -124,7 +129,8 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function searchMessages(args) {
-    const { query, folderPath, folderPaths, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith } = args;
+    const { query, folderPath, folderPaths, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes } = args;
+    const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
     const hasQuery = !!lowerQuery;
@@ -276,6 +282,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     } else {
       for (const account of MailServices.accounts.accounts) {
         if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
+        if (typeFilter && !typeFilter.has(account.incomingServer.type)) continue;
         searchFolder(account.incomingServer.rootFolder);
       }
     }

@@ -349,12 +349,6 @@
     }
   },
   {
-    "name": "listFeedAccounts",
-    "title": "List Feed Accounts",
-    "description": "List all RSS/Atom feed accounts configured in Thunderbird",
-    "inputSchema": { "type": "object", "properties": {}, "required": [] }
-  },
-  {
     "name": "createFeedAccount",
     "title": "Create Feed Account",
     "description": "Create a new RSS/Atom feed account",

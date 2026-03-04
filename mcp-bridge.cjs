@@ -18,12 +18,82 @@ const TOKEN_PATH = path.join(os.homedir(), '.thunderbird-mcp-token');
 const VERSION = require(path.join(__dirname, 'package.json')).version;
 
 /**
+ * Tool group definitions. Use --tools=group1,group2 to expose only specific
+ * groups. Default is all tools. Available groups: mail, calendar, feeds.
+ */
+const TOOL_GROUPS = {
+  mail: [
+    'listAccounts', 'listFolders', 'searchMessages', 'getMessage',
+    'deleteMessages', 'updateMessage', 'createDraft', 'searchContacts',
+    'createFolder', 'renameFolder', 'deleteFolder', 'moveFolder',
+    'emptyJunk', 'emptyTrash',
+  ],
+  calendar: [
+    'listCalendars', 'createEvent', 'listEvents', 'updateEvent', 'deleteEvent',
+    'listTasks', 'createTask', 'updateTask', 'deleteTask',
+  ],
+  feeds: [
+    'listAccounts', 'createFeedAccount', 'listFeeds',
+    'subscribeFeed', 'unsubscribeFeed', 'refreshFeeds',
+    'createFolder', 'listFolders', 'searchMessages', 'getMessage',
+  ],
+};
+
+/**
  * Tool definitions loaded from shared JSON file.
  * Serves tools/list locally so it succeeds even when Thunderbird is not running.
  */
-const TOOLS = JSON.parse(
+const ALL_TOOLS = JSON.parse(
   fs.readFileSync(path.join(__dirname, 'extension', 'mcp_server', 'tools.json'), 'utf8')
 );
+
+// Parse --tools flag to filter exposed tools
+const toolsArg = process.argv.find(a => a.startsWith('--tools='));
+let TOOLS;
+if (toolsArg) {
+  const groups = toolsArg.slice('--tools='.length).split(',').map(g => g.trim());
+  const allowedNames = new Set();
+  for (const group of groups) {
+    const names = TOOL_GROUPS[group];
+    if (!names) {
+      process.stderr.write(`Unknown tool group: "${group}". Available: ${Object.keys(TOOL_GROUPS).join(', ')}\n`);
+      process.exit(1);
+    }
+    for (const n of names) allowedNames.add(n);
+  }
+  TOOLS = ALL_TOOLS.filter(t => allowedNames.has(t.name));
+} else {
+  TOOLS = ALL_TOOLS;
+}
+
+const TOOL_NAME_SET = new Set(TOOLS.map(t => t.name));
+
+/**
+ * Account type filters per tool group. When a group is active, tools that
+ * accept accountTypes will have it auto-injected so results are scoped
+ * to the relevant account types. Transparent to the AI caller.
+ */
+const GROUP_ACCOUNT_TYPES = {
+  mail: ['imap', 'ews', 'pop3', 'none'],
+  feeds: ['rss'],
+};
+const ACCOUNT_TYPE_TOOLS = new Set(['listAccounts', 'listFolders', 'searchMessages']);
+
+let activeAccountTypes = null;
+if (toolsArg) {
+  const groups = toolsArg.slice('--tools='.length).split(',').map(g => g.trim());
+  // Merge account types from all active groups
+  const merged = new Set();
+  let hasFilter = false;
+  for (const group of groups) {
+    const types = GROUP_ACCOUNT_TYPES[group];
+    if (types) {
+      hasFilter = true;
+      for (const t of types) merged.add(t);
+    }
+  }
+  if (hasFilter) activeAccountTypes = [...merged];
+}
 
 /**
  * Read the auth token fresh each call to handle Thunderbird restarts.
@@ -75,7 +145,7 @@ function sanitizeJson(data) {
 }
 
 async function handleMessage(line) {
-  const message = JSON.parse(line);
+  let message = JSON.parse(line);
   const hasId = Object.prototype.hasOwnProperty.call(message, 'id');
   const isNotification =
     !hasId ||
@@ -121,6 +191,22 @@ async function handleMessage(line) {
       };
 
     case 'tools/call':
+      // Reject tools outside the allowed set
+      if (message.params?.name && !TOOL_NAME_SET.has(message.params.name)) {
+        return {
+          jsonrpc: '2.0',
+          id: message.id,
+          error: { code: -32601, message: `Tool not available: ${message.params.name}` }
+        };
+      }
+      // Auto-inject accountTypes filter for scoped tool groups
+      if (activeAccountTypes && ACCOUNT_TYPE_TOOLS.has(message.params.name)) {
+        message = JSON.parse(JSON.stringify(message));
+        if (!message.params.arguments) message.params.arguments = {};
+        if (!message.params.arguments.accountTypes) {
+          message.params.arguments.accountTypes = activeAccountTypes;
+        }
+      }
       // Forward to Thunderbird, but gracefully handle connection failures
       try {
         return await forwardToThunderbird(message);
