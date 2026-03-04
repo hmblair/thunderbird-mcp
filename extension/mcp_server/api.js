@@ -433,7 +433,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
 	              return { msgHdr, folder, db };
 	            }
 
-	            function searchMessages(query, folderPath, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly) {
+	            function searchMessages(query, folderPath, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength) {
 	              const results = [];
 	              const lowerQuery = (query || "").toLowerCase();
 	              const hasQuery = !!lowerQuery;
@@ -449,6 +449,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 MAX_SEARCH_RESULTS_CAP
               );
               const normalizedSortOrder = sortOrder === "asc" ? "asc" : "desc";
+              const snippetLen = Number.isFinite(Number(snippetLength)) && Number(snippetLength) > 0 ? Math.floor(Number(snippetLength)) : 0;
 
               function searchFolder(folder) {
                 if (results.length >= SEARCH_COLLECTION_CAP) return;
@@ -490,7 +491,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                           !ccList.includes(lowerQuery)) continue;
                     }
 
-                    results.push({
+                    const entry = {
                       id: msgHdr.messageId,
                       subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
                       author: msgHdr.mime2DecodedAuthor || msgHdr.author,
@@ -502,7 +503,14 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       read: msgHdr.isRead,
                       flagged: msgHdr.isFlagged,
                       _dateTs: msgDateTs
-                    });
+                    };
+                    if (snippetLen > 0) {
+                      try {
+                        const preview = msgHdr.getStringProperty("preview") || "";
+                        entry.snippet = preview.substring(0, snippetLen);
+                      } catch (e) { entry.snippet = ""; }
+                    }
+                    results.push(entry);
                   }
                 } catch (e) { mcpWarn("message enumeration", e);
                 }
@@ -1569,7 +1577,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               });
             }
 
-            function getRecentMessages(folderPath, daysBack, maxResults, unreadOnly, flaggedOnly) {
+            function getRecentMessages(folderPath, daysBack, maxResults, unreadOnly, flaggedOnly, snippetLength) {
               const results = [];
               const days = Number.isFinite(Number(daysBack)) && Number(daysBack) > 0 ? Math.floor(Number(daysBack)) : 7;
               const cutoffTs = (Date.now() - days * 86400000) * 1000; // Thunderbird uses microseconds
@@ -1578,6 +1586,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 Number.isFinite(requestedLimit) && requestedLimit > 0 ? Math.floor(requestedLimit) : DEFAULT_MAX_RESULTS,
                 MAX_SEARCH_RESULTS_CAP
               );
+              const snippetLen = Number.isFinite(Number(snippetLength)) && Number(snippetLength) > 0 ? Math.floor(Number(snippetLength)) : 0;
 
               function collectFromFolder(folder) {
                 if (results.length >= SEARCH_COLLECTION_CAP) return;
@@ -1594,7 +1603,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                     if (unreadOnly && msgHdr.isRead) continue;
                     if (flaggedOnly && !msgHdr.isFlagged) continue;
 
-                    results.push({
+                    const entry = {
                       id: msgHdr.messageId,
                       subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
                       author: msgHdr.mime2DecodedAuthor || msgHdr.author,
@@ -1605,7 +1614,14 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       read: msgHdr.isRead,
                       flagged: msgHdr.isFlagged,
                       _dateTs: msgDateTs
-                    });
+                    };
+                    if (snippetLen > 0) {
+                      try {
+                        const preview = msgHdr.getStringProperty("preview") || "";
+                        entry.snippet = preview.substring(0, snippetLen);
+                      } catch (e) { entry.snippet = ""; }
+                    }
+                    results.push(entry);
                   }
                 } catch (e) { mcpWarn("recent messages enumeration", e);
                 }
@@ -2463,7 +2479,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 case "listFolders":
                   return listFolders(args.accountId, args.folderPath);
                 case "searchMessages":
-                  return searchMessages(args.query || "", args.folderPath, args.startDate, args.endDate, args.maxResults, args.sortOrder, args.unreadOnly, args.flaggedOnly);
+                  return searchMessages(args.query || "", args.folderPath, args.startDate, args.endDate, args.maxResults, args.sortOrder, args.unreadOnly, args.flaggedOnly, args.snippetLength);
                 case "getMessage":
                   return await getMessage(args.messageId, args.folderPath, args.saveAttachments);
                 case "searchContacts":
@@ -2485,7 +2501,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 case "forwardMessage":
                   return await forwardMessage(args.messageId, args.folderPath, args.to, args.body, args.isHtml, args.cc, args.bcc, args.from, args.attachments);
                 case "getRecentMessages":
-                  return getRecentMessages(args.folderPath, args.daysBack, args.maxResults, args.unreadOnly, args.flaggedOnly);
+                  return getRecentMessages(args.folderPath, args.daysBack, args.maxResults, args.unreadOnly, args.flaggedOnly, args.snippetLength);
                 case "deleteMessages":
                   return deleteMessages(args.messageIds, args.folderPath);
                 case "updateMessage":
