@@ -129,6 +129,20 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             }
 
             /**
+             * Parse a date string, returning a JS Date.
+             * Date-only strings (YYYY-MM-DD) are parsed by splitting to avoid
+             * the UTC interpretation that new Date("YYYY-MM-DD") applies, which
+             * shifts the date back by one day in western timezones.
+             */
+            function parseDate(s) {
+              if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+                const [y, m, d] = s.split("-").map(Number);
+                return new Date(y, m - 1, d);
+              }
+              return new Date(s);
+            }
+
+            /**
              * CRITICAL: Must specify { charset: "UTF-8" } or emojis/special chars
              * will be corrupted. NetUtil defaults to Latin-1.
              */
@@ -620,12 +634,12 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   return { error: "No Thunderbird window found" };
                 }
 
-                const startJs = new Date(startDate);
+                const startJs = parseDate(startDate);
                 if (isNaN(startJs.getTime())) {
                   return { error: `Invalid startDate: ${startDate}` };
                 }
 
-                let endJs = endDate ? new Date(endDate) : null;
+                let endJs = endDate ? parseDate(endDate) : null;
                 if (endDate && (!endJs || isNaN(endJs.getTime()))) {
                   return { error: `Invalid endDate: ${endDate}` };
                 }
@@ -653,23 +667,21 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
 
                   const endDt = cal.createDateTime();
                   if (endJs) {
-                    endDt.resetTo(endJs.getFullYear(), endJs.getMonth(), endJs.getDate(), 0, 0, 0, cal.dtz.floating);
+                    // iCal DTEND is exclusive — always bump by 1 day so the
+                    // API accepts inclusive end dates (e.g. Mar 20 means
+                    // the event includes Mar 20)
+                    const bumpedEnd = new Date(endJs.getFullYear(), endJs.getMonth(), endJs.getDate());
+                    bumpedEnd.setDate(bumpedEnd.getDate() + 1);
+                    endDt.resetTo(
+                      bumpedEnd.getFullYear(),
+                      bumpedEnd.getMonth(),
+                      bumpedEnd.getDate(),
+                      0,
+                      0,
+                      0,
+                      cal.dtz.floating
+                    );
                     endDt.isDate = true;
-                    // iCal DTEND is exclusive — bump if same as start
-                    if (endDt.compare(startDt) <= 0) {
-                      const bumpedEnd = new Date(endJs.getFullYear(), endJs.getMonth(), endJs.getDate());
-                      bumpedEnd.setDate(bumpedEnd.getDate() + 1);
-                      endDt.resetTo(
-                        bumpedEnd.getFullYear(),
-                        bumpedEnd.getMonth(),
-                        bumpedEnd.getDate(),
-                        0,
-                        0,
-                        0,
-                        cal.dtz.floating
-                      );
-                      endDt.isDate = true;
-                    }
                   } else {
                     const defaultEnd = new Date(startJs.getTime());
                     defaultEnd.setDate(defaultEnd.getDate() + 1);
@@ -781,7 +793,15 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
 
                 function formatItem(item, calendar) {
                   const start = formatCalDateTime(item.startDate);
-                  const end = formatCalDateTime(item.endDate);
+                  let end = formatCalDateTime(item.endDate);
+                  // Convert exclusive iCal DTEND back to inclusive for all-day events
+                  const isAllDay = item.startDate ? item.startDate.isDate : false;
+                  if (isAllDay && item.endDate) {
+                    const d = new Date(item.endDate.year, item.endDate.month, item.endDate.day);
+                    d.setDate(d.getDate() - 1);
+                    const pad = (n) => String(n).padStart(2, "0");
+                    end = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00:00`;
+                  }
                   return {
                     id: item.id,
                     calendarId: calendar.id,
@@ -791,7 +811,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                     endDate: end,
                     location: item.getProperty("LOCATION") || "",
                     description: item.getProperty("DESCRIPTION") || "",
-                    allDay: item.startDate ? item.startDate.isDate : false,
+                    allDay: isAllDay,
                   };
                 }
 
@@ -893,7 +913,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 }
 
                 if (startDate !== undefined) {
-                  const js = new Date(startDate);
+                  const js = parseDate(startDate);
                   if (isNaN(js.getTime())) {
                     return { error: `Invalid startDate: ${startDate}` };
                   }
@@ -909,13 +929,16 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 }
 
                 if (endDate !== undefined) {
-                  const js = new Date(endDate);
+                  const js = parseDate(endDate);
                   if (isNaN(js.getTime())) {
                     return { error: `Invalid endDate: ${endDate}` };
                   }
                   if (newItem.endDate && newItem.endDate.isDate) {
+                    // iCal DTEND is exclusive — bump by 1 for inclusive API
+                    const bumped = new Date(js.getFullYear(), js.getMonth(), js.getDate());
+                    bumped.setDate(bumped.getDate() + 1);
                     const dt = cal.createDateTime();
-                    dt.resetTo(js.getFullYear(), js.getMonth(), js.getDate(), 0, 0, 0, cal.dtz.floating);
+                    dt.resetTo(bumped.getFullYear(), bumped.getMonth(), bumped.getDate(), 0, 0, 0, cal.dtz.floating);
                     dt.isDate = true;
                     newItem.endDate = dt;
                   } else {
@@ -1102,7 +1125,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 todo.title = title;
 
                 if (dueDate) {
-                  const js = new Date(dueDate);
+                  const js = parseDate(dueDate);
                   if (isNaN(js.getTime())) {
                     return { error: `Invalid dueDate: ${dueDate}` };
                   }
@@ -1189,7 +1212,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   if (dueDate === null || dueDate === "") {
                     newItem.dueDate = null;
                   } else {
-                    const js = new Date(dueDate);
+                    const js = parseDate(dueDate);
                     if (isNaN(js.getTime())) {
                       return { error: `Invalid dueDate: ${dueDate}` };
                     }
