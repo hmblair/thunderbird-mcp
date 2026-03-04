@@ -143,6 +143,71 @@
     }
   },
   {
+    "name": "listTasks",
+    "title": "List Tasks",
+    "description": "List tasks (todos) from calendars, optionally filtered by date range and completion status",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "calendarId": { "type": "string", "description": "Calendar ID to query (from listCalendars). If omitted, queries all calendars." },
+        "startDate": { "type": "string", "description": "Only include tasks due on or after this ISO 8601 date" },
+        "endDate": { "type": "string", "description": "Only include tasks due on or before this ISO 8601 date" },
+        "maxResults": { "type": "number", "description": "Maximum number of tasks to return (default: 100)" },
+        "includeCompleted": { "type": "boolean", "description": "Include completed tasks (default: false)" }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "createTask",
+    "title": "Create Task",
+    "description": "Create a new task (todo). By default opens a review dialog; set skipReview to add directly.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Task title" },
+        "dueDate": { "type": "string", "description": "Due date/time in ISO 8601 format (optional)" },
+        "description": { "type": "string", "description": "Task description (optional)" },
+        "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars, defaults to first writable calendar)" },
+        "priority": { "type": "number", "description": "Priority 0-9 (0=undefined, 1=highest, 5=normal, 9=lowest)" },
+        "skipReview": { "type": "boolean", "description": "If true, add directly without opening a review dialog (default: false)" }
+      },
+      "required": ["title"]
+    }
+  },
+  {
+    "name": "updateTask",
+    "title": "Update Task",
+    "description": "Update a task's title, due date, description, priority, completion percentage, or status",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string", "description": "The task ID (from listTasks results)" },
+        "calendarId": { "type": "string", "description": "The calendar ID containing the task (from listTasks results)" },
+        "title": { "type": "string", "description": "New task title (optional)" },
+        "dueDate": { "type": "string", "description": "New due date in ISO 8601 format, or empty string to clear (optional)" },
+        "description": { "type": "string", "description": "New description (optional)" },
+        "priority": { "type": "number", "description": "Priority 0-9 (optional)" },
+        "percentComplete": { "type": "number", "description": "Completion percentage 0-100. Setting to 100 marks as completed. (optional)" },
+        "status": { "type": "string", "description": "Task status: NONE, NEEDS-ACTION, IN-PROCESS, COMPLETED, or CANCELLED (optional)" }
+      },
+      "required": ["taskId", "calendarId"]
+    }
+  },
+  {
+    "name": "deleteTask",
+    "title": "Delete Task",
+    "description": "Delete a task (todo) from a calendar",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string", "description": "The task ID (from listTasks results)" },
+        "calendarId": { "type": "string", "description": "The calendar ID containing the task (from listTasks results)" }
+      },
+      "required": ["taskId", "calendarId"]
+    }
+  },
+  {
     "name": "searchContacts",
     "title": "Search Contacts",
     "description": "Find contacts the user interacted with",
