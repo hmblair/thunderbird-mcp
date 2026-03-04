@@ -1,7 +1,7 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, findTrashFolder, findJunkFolder } = utils;
+  const { mcpWarn, findTrashFolder, findJunkFolder, getAccountId } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
@@ -36,7 +36,8 @@ export function createFolderHandlers({ MailServices, utils }) {
       return {
         success: true,
         message: `Folder "${name}" created`,
-        path: newPath
+        path: newPath,
+        accountId: getAccountId(parent),
       };
     } catch (e) {
       const msg = e.toString();
@@ -67,7 +68,8 @@ export function createFolderHandlers({ MailServices, utils }) {
       return {
         success: true,
         message: `Folder renamed to "${newName}"`,
-        path: folder.URI
+        path: folder.URI,
+        accountId: getAccountId(folder),
       };
     } catch (e) {
       return { error: e.toString() };
@@ -91,16 +93,17 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: "Cannot delete a root folder" };
       }
 
+      const accountId = getAccountId(folder);
       if (permanent) {
         parent.propagateDelete(folder, true, null);
-        return { success: true, message: `Folder permanently deleted` };
+        return { success: true, message: `Folder permanently deleted`, accountId };
       } else {
         const trashFolder = findTrashFolder(folder);
         if (!trashFolder) {
           return { error: "Trash folder not found" };
         }
         parent.propagateDelete(folder, false, null);
-        return { success: true, message: `Folder moved to Trash` };
+        return { success: true, message: `Folder moved to Trash`, accountId };
       }
     } catch (e) {
       return { error: e.toString() };
@@ -131,7 +134,8 @@ export function createFolderHandlers({ MailServices, utils }) {
 
       return {
         success: true,
-        message: `Folder moved to "${destParent.prettyName || destParent.name || destinationParentPath}"`
+        message: `Folder moved to "${destParent.prettyName || destParent.name || destinationParentPath}"`,
+        accountId: getAccountId(folder),
       };
     } catch (e) {
       return { error: e.toString() };
@@ -149,21 +153,23 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: accountId ? `Account not found: ${accountId}` : "No accounts found" };
       }
 
-      let emptied = 0;
+      const results = [];
       for (const account of accounts) {
         const root = account.incomingServer?.rootFolder;
         if (!root) continue;
         const trash = findTrashFolder({ server: account.incomingServer });
         if (trash) {
+          const countBefore = trash.getTotalMessages(false);
           trash.emptyTrash(null);
-          emptied++;
+          const countAfter = trash.getTotalMessages(false);
+          results.push({ accountId: account.key, folder: trash.URI, messagesDeleted: countBefore - countAfter, countBefore, countAfter });
         }
       }
 
-      if (emptied === 0) {
+      if (results.length === 0) {
         return { error: "No Trash folders found" };
       }
-      return { success: true, message: `Emptied Trash for ${emptied} account(s)` };
+      return { success: true, accounts: results };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -180,7 +186,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: accountId ? `Account not found: ${accountId}` : "No accounts found" };
       }
 
-      let emptied = 0;
+      const results = [];
       for (const account of accounts) {
         const junk = findJunkFolder(account);
         if (!junk) continue;
@@ -191,16 +197,18 @@ export function createFolderHandlers({ MailServices, utils }) {
             for (const hdr of db.enumerateMessages()) msgs.push(hdr);
           }
         } catch {}
+        const countBefore = msgs.length;
         if (msgs.length > 0) {
           junk.deleteMessages(msgs, null, true, false, null, false);
         }
-        emptied++;
+        const countAfter = junk.getTotalMessages(false);
+        results.push({ accountId: account.key, folder: junk.URI, messagesDeleted: countBefore - countAfter, countBefore, countAfter });
       }
 
-      if (emptied === 0) {
+      if (results.length === 0) {
         return { error: "No Junk folders found" };
       }
-      return { success: true, message: `Emptied Junk for ${emptied} account(s)` };
+      return { success: true, accounts: results };
     } catch (e) {
       return { error: e.toString() };
     }

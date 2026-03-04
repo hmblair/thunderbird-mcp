@@ -155,6 +155,12 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return fallback;
   }
 
+  function getAccountId(folder) {
+    try {
+      return MailServices.accounts.findAccountForServer(folder.server)?.key || null;
+    } catch { return null; }
+  }
+
   function findMessage(messageId, folderPath) {
     const opened = openFolder(folderPath);
     if (opened.error) return opened;
@@ -197,6 +203,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     openFolder,
     findTrashFolder,
     findDraftsFolder,
+    getAccountId,
     findMessage,
   };
 }
