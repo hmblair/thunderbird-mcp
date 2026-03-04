@@ -33,6 +33,11 @@
       "type": "object",
       "properties": {
         "query": { "type": "string", "description": "Text to search in subject, author, or recipients (default: empty, matches all)" },
+        "from": { "type": "string", "description": "Filter by sender name or email address (substring match)" },
+        "to": { "type": "string", "description": "Filter by recipient or CC name or email address (substring match)" },
+        "subject": { "type": "string", "description": "Filter by subject line (substring match)" },
+        "hasAttachments": { "type": "boolean", "description": "Only return messages with attachments (default: false)" },
+        "taggedWith": { "type": "string", "description": "Only return messages with this tag key (e.g. '$label1' for Important)" },
         "accountId": { "type": "string", "description": "Account ID (from listAccounts) to limit search to a single account. Ignored if folderPath is provided." },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox') to limit search" },
         "startDate": { "type": "string", "description": "Filter messages on or after this ISO 8601 date" },
@@ -80,7 +85,8 @@
         "location": { "type": "string", "description": "Event location" },
         "description": { "type": "string", "description": "Event description" },
         "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars, defaults to first writable calendar)" },
-        "allDay": { "type": "boolean", "description": "Create an all-day event (default: false)" }
+        "allDay": { "type": "boolean", "description": "Create an all-day event (default: false)" },
+        "recurrence": { "type": "string", "description": "iCal RRULE string for repeating events (e.g. 'FREQ=WEEKLY;BYDAY=MO,WE,FR' or 'FREQ=MONTHLY;BYMONTHDAY=15')" }
       },
       "required": ["title", "startDate"]
     }
@@ -113,7 +119,8 @@
         "startDate": { "type": "string", "description": "New start date/time in ISO 8601 format (optional)" },
         "endDate": { "type": "string", "description": "New end date/time in ISO 8601 format (optional)" },
         "location": { "type": "string", "description": "New event location (optional)" },
-        "description": { "type": "string", "description": "New event description (optional)" }
+        "description": { "type": "string", "description": "New event description (optional)" },
+        "recurrence": { "type": "string", "description": "New iCal RRULE string (e.g. 'FREQ=WEEKLY;BYDAY=MO'), or empty string to remove recurrence" }
       },
       "required": ["eventId", "calendarId"]
     }

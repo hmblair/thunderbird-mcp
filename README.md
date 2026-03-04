@@ -31,7 +31,7 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 |------|-------------|
 | `listAccounts` | List all email accounts and their identities |
 | `listFolders` | Browse folder tree with message counts — filter by account or subtree |
-| `searchMessages` | Search messages by query, date range, folder, account, read/flagged status, or just count them |
+| `searchMessages` | Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them |
 | `getMessage` | Read full email content with optional attachment saving to disk |
 | `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
 | `deleteMessages` | Delete messages from a folder |
@@ -61,8 +61,8 @@ Drafts are saved directly to the Drafts folder. Supports new messages, replies (
 |------|-------------|
 | `listCalendars` | List all calendars (local and CalDAV) |
 | `listEvents` | List events within a date range |
-| `createEvent` | Create a calendar event |
-| `updateEvent` | Update an event's title, dates, location, or description |
+| `createEvent` | Create a calendar event (supports recurring events via RRULE) |
+| `updateEvent` | Update an event's title, dates, location, description, or recurrence |
 | `deleteEvent` | Delete a calendar event |
 
 ### Tasks

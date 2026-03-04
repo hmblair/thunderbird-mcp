@@ -130,10 +130,15 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function searchMessages(args) {
-    const { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly } = args;
+    const { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith } = args;
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
     const hasQuery = !!lowerQuery;
+    const lowerFrom = from ? from.toLowerCase() : null;
+    const lowerTo = to ? to.toLowerCase() : null;
+    const lowerSubject = subject ? subject.toLowerCase() : null;
+    const filterAttachments = hasAttachments === true || hasAttachments === "true";
+    const filterTag = taggedWith || null;
     const parsedStartDate = startDate ? parseDate(startDate).getTime() : NaN;
     const parsedEndDate = endDate ? parseDate(endDate).getTime() : NaN;
     const startDateTs = Number.isFinite(parsedStartDate) ? parsedStartDate * 1000 : null;
@@ -178,14 +183,35 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
           if (flaggedOnly && !msgHdr.isFlagged) continue;
 
           if (hasQuery) {
-            const subject = (msgHdr.mime2DecodedSubject || msgHdr.subject || "").toLowerCase();
+            const subj = (msgHdr.mime2DecodedSubject || msgHdr.subject || "").toLowerCase();
             const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
-            const recipients = (msgHdr.mime2DecodedRecipients || msgHdr.recipients || "").toLowerCase();
-            const ccList = (msgHdr.ccList || "").toLowerCase();
-            if (!subject.includes(lowerQuery) &&
+            const recip = (msgHdr.mime2DecodedRecipients || msgHdr.recipients || "").toLowerCase();
+            const cc = (msgHdr.ccList || "").toLowerCase();
+            if (!subj.includes(lowerQuery) &&
                 !author.includes(lowerQuery) &&
-                !recipients.includes(lowerQuery) &&
-                !ccList.includes(lowerQuery)) continue;
+                !recip.includes(lowerQuery) &&
+                !cc.includes(lowerQuery)) continue;
+          }
+          if (lowerFrom) {
+            const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
+            if (!author.includes(lowerFrom)) continue;
+          }
+          if (lowerTo) {
+            const recip = (msgHdr.mime2DecodedRecipients || msgHdr.recipients || "").toLowerCase();
+            const cc = (msgHdr.ccList || "").toLowerCase();
+            if (!recip.includes(lowerTo) && !cc.includes(lowerTo)) continue;
+          }
+          if (lowerSubject) {
+            const subj = (msgHdr.mime2DecodedSubject || msgHdr.subject || "").toLowerCase();
+            if (!subj.includes(lowerSubject)) continue;
+          }
+          if (filterAttachments) {
+            const HAS_ATTACHMENT_FLAG = 0x10000000;
+            if (!(msgHdr.flags & HAS_ATTACHMENT_FLAG)) continue;
+          }
+          if (filterTag) {
+            const keywords = (msgHdr.getStringProperty("keywords") || "").toLowerCase();
+            if (!keywords.includes(filterTag.toLowerCase())) continue;
           }
 
           if (countOnly) {

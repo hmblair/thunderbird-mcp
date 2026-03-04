@@ -142,7 +142,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             const mailHandlers = createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils });
             const composeHandlers = createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUtils, utils });
             const folderHandlers = createFolderHandlers({ MailServices, utils });
-            const calendarHandlers = createCalendarHandlers({ Services, cal, CalEvent, utils });
+            const calendarHandlers = createCalendarHandlers({ Services, cal, CalEvent, ChromeUtils, utils });
             const taskHandlers = createTaskHandlers({ Services, cal, CalTodo, utils });
             const contactHandlers = createContactHandlers({ MailServices });
 

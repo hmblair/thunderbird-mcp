@@ -1,6 +1,6 @@
 // calendar.sys.mjs — Calendar tools: list, create, update, delete events
 
-export function createCalendarHandlers({ cal, CalEvent, utils }) {
+export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
   const { mcpWarn, parseDate, formatCalDateTime } = utils;
 
   function listCalendars() {
@@ -48,7 +48,7 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
   }
 
   async function createEvent(args) {
-    const { title, startDate, endDate, location, description, calendarId, allDay } = args;
+    const { title, startDate, endDate, location, description, calendarId, allDay, recurrence } = args;
     if (!cal || !CalEvent) {
       return { error: "Calendar module not available" };
     }
@@ -122,6 +122,21 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
       if (location) event.setProperty("LOCATION", location);
       if (description) event.setProperty("DESCRIPTION", description);
 
+      if (recurrence) {
+        try {
+          const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+          const { CalRecurrenceRule } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceRule.sys.mjs");
+          const recInfo = new CalRecurrenceInfo(event);
+          const rule = new CalRecurrenceRule();
+          const icalString = recurrence.startsWith("RRULE:") ? recurrence : `RRULE:${recurrence}`;
+          rule.icalString = icalString;
+          recInfo.appendRecurrenceItem(rule);
+          event.recurrenceInfo = recInfo;
+        } catch (e) {
+          return { error: `Invalid recurrence rule: ${e.message || e}` };
+        }
+      }
+
       const calendars = cal.manager.getCalendars();
       let targetCalendar = null;
       if (calendarId) {
@@ -188,7 +203,7 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
           const pad = (n) => String(n).padStart(2, "0");
           end = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00:00`;
         }
-        return {
+        const result = {
           id: item.id,
           calendarId: calendar.id,
           calendarName: calendar.name,
@@ -199,6 +214,20 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
           description: item.getProperty("DESCRIPTION") || "",
           allDay: isAllDay,
         };
+        const recSource = item.recurrenceInfo || (item.parentItem && item.parentItem !== item ? item.parentItem.recurrenceInfo : null);
+        if (recSource) {
+          try {
+            const rules = [];
+            for (let i = 0; i < recSource.countRecurrenceItems(); i++) {
+              const rItem = recSource.getRecurrenceItemAt(i);
+              if (rItem.icalString) {
+                rules.push(rItem.icalString.replace(/^RRULE:/, "").trim());
+              }
+            }
+            if (rules.length > 0) result.recurrence = rules.join(";");
+          } catch {}
+        }
+        return result;
       }
 
       const results = [];
@@ -235,7 +264,7 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
   }
 
   async function updateEvent(args) {
-    const { eventId, calendarId, title, startDate, endDate, location, description } = args;
+    const { eventId, calendarId, title, startDate, endDate, location, description, recurrence } = args;
     if (!cal) {
       return { error: "Calendar not available" };
     }
@@ -308,6 +337,26 @@ export function createCalendarHandlers({ cal, CalEvent, utils }) {
       if (description !== undefined) {
         newItem.setProperty("DESCRIPTION", description);
         changes.push("description");
+      }
+
+      if (recurrence !== undefined) {
+        try {
+          if (recurrence === null || recurrence === "") {
+            newItem.recurrenceInfo = null;
+          } else {
+            const { CalRecurrenceInfo } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceInfo.sys.mjs");
+            const { CalRecurrenceRule } = ChromeUtils.importESModule("resource:///modules/CalRecurrenceRule.sys.mjs");
+            const recInfo = new CalRecurrenceInfo(newItem);
+            const rule = new CalRecurrenceRule();
+            const icalString = recurrence.startsWith("RRULE:") ? recurrence : `RRULE:${recurrence}`;
+            rule.icalString = icalString;
+            recInfo.appendRecurrenceItem(rule);
+            newItem.recurrenceInfo = recInfo;
+          }
+          changes.push("recurrence");
+        } catch (e) {
+          return { error: `Invalid recurrence rule: ${e.message || e}` };
+        }
       }
 
       if (changes.length === 0) {
