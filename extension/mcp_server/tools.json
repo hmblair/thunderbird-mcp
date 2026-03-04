@@ -40,7 +40,8 @@
         "sortOrder": { "type": "string", "description": "Date sort order: asc (oldest first) or desc (newest first, default)" },
         "unreadOnly": { "type": "boolean", "description": "Only return unread messages (default: false)" },
         "flaggedOnly": { "type": "boolean", "description": "Only return flagged/starred messages (default: false)" },
-        "snippetLength": { "type": "number", "description": "Include a body preview of up to this many characters (default: 0, no snippet)" }
+        "snippetLength": { "type": "number", "description": "Include a body preview of up to this many characters (default: 0, no snippet)" },
+        "countOnly": { "type": "boolean", "description": "Return only the count of matching messages, not the messages themselves (default: false)" }
       },
       "required": ["query"]
     }

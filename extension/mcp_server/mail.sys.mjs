@@ -130,7 +130,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function searchMessages(args) {
-    const { query, folderPath, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength } = args;
+    const { query, folderPath, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly } = args;
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
     const hasQuery = !!lowerQuery;
@@ -148,9 +148,10 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     const snippetLen = Number.isFinite(Number(snippetLength)) && Number(snippetLength) > 0 ? Math.floor(Number(snippetLength)) : 0;
 
     const seenMsgs = new Set();
+    let count = 0;
 
     function searchFolder(folder) {
-      if (results.length >= SEARCH_COLLECTION_CAP) return;
+      if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) return;
 
       try {
         if (folder.server && folder.server.type === "imap") {
@@ -164,7 +165,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         if (!db) return;
 
         for (const msgHdr of db.enumerateMessages()) {
-          if (results.length >= SEARCH_COLLECTION_CAP) break;
+          if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
 
           const dedupKey = `${folder.URI}\t${msgHdr.messageId}`;
           if (seenMsgs.has(dedupKey)) continue;
@@ -185,6 +186,11 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
                 !author.includes(lowerQuery) &&
                 !recipients.includes(lowerQuery) &&
                 !ccList.includes(lowerQuery)) continue;
+          }
+
+          if (countOnly) {
+            count++;
+            continue;
           }
 
           const entry = {
@@ -213,7 +219,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
       if (folder.hasSubFolders) {
         for (const subfolder of folder.subFolders) {
-          if (results.length >= SEARCH_COLLECTION_CAP) break;
+          if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
           searchFolder(subfolder);
         }
       }
@@ -227,9 +233,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       searchFolder(folder);
     } else {
       for (const account of MailServices.accounts.accounts) {
-        if (results.length >= SEARCH_COLLECTION_CAP) break;
+        if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
         searchFolder(account.incomingServer.rootFolder);
       }
+    }
+
+    if (countOnly) {
+      return { count };
     }
 
     results.sort((a, b) => normalizedSortOrder === "asc" ? a._dateTs - b._dateTs : b._dateTs - a._dateTs);
