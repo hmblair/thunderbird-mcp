@@ -62,7 +62,7 @@ All compose tools open a window for you to review and edit before sending.
 |------|-------------|
 | `listCalendars` | List all calendars (local and CalDAV) |
 | `listEvents` | List events within a date range |
-| `createEvent` | Create an event — opens a review dialog by default, or add directly with `skipReview` |
+| `createEvent` | Create a calendar event |
 | `updateEvent` | Update an event's title, dates, location, or description |
 | `deleteEvent` | Delete a calendar event |
 
@@ -71,7 +71,7 @@ All compose tools open a window for you to review and edit before sending.
 | Tool | Description |
 |------|-------------|
 | `listTasks` | List todos from calendars, filtered by date range and completion status |
-| `createTask` | Create a todo — opens a review dialog by default, or add directly with `skipReview` |
+| `createTask` | Create a todo |
 | `updateTask` | Update a task's title, due date, priority, status, or completion percentage |
 | `deleteTask` | Delete a task |
 
@@ -91,7 +91,13 @@ All compose tools open a window for you to review and edit before sending.
 git clone https://github.com/TKasperczyk/thunderbird-mcp.git
 ```
 
-Install `dist/thunderbird-mcp.xpi` in Thunderbird (Tools > Add-ons > Install from File), then restart.
+Build and install the extension:
+
+```bash
+make
+```
+
+Then install `dist/thunderbird-mcp.xpi` in Thunderbird (Tools > Add-ons > Install from File) and restart.
 
 ### 2. Configure your MCP client
 
@@ -133,7 +139,7 @@ The extension listens on `localhost:8765` only. No remote access. However, any l
 
 ```bash
 # Build the extension
-./scripts/build.sh
+make
 
 # Install: open dist/thunderbird-mcp.xpi in Thunderbird
 # (Tools > Add-ons > Install from File), then restart
@@ -171,8 +177,7 @@ thunderbird-mcp/
 │       ├── contacts.sys.mjs    # Contact tools
 │       ├── tools.json          # Tool definitions and schemas
 │       └── schema.json
-└── scripts/
-    └── build.sh
+└── Makefile
 ```
 
 ## Known issues
