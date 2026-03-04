@@ -1,7 +1,7 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, resolveFolder, findTrashFolder, findJunkFolder, getAccountId } = utils;
+  const { mcpWarn, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccount } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
@@ -143,7 +143,7 @@ export function createFolderHandlers({ MailServices, utils }) {
     const { accountId } = args || {};
     try {
       const accounts = accountId
-        ? [MailServices.accounts.getAccount(accountId)].filter(Boolean)
+        ? [resolveAccount(accountId)].filter(Boolean)
         : [...MailServices.accounts.accounts];
 
       if (accounts.length === 0) {
@@ -174,7 +174,7 @@ export function createFolderHandlers({ MailServices, utils }) {
     const { accountId } = args || {};
     try {
       const accounts = accountId
-        ? [MailServices.accounts.getAccount(accountId)].filter(Boolean)
+        ? [resolveAccount(accountId)].filter(Boolean)
         : [...MailServices.accounts.accounts];
 
       if (accounts.length === 0) {

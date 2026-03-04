@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, lookupMsgHdr,
+    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, lookupMsgHdr,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -90,13 +90,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     }
 
     if (accountId) {
-      let target = null;
-      for (const account of MailServices.accounts.accounts) {
-        if (account.key === accountId) {
-          target = account;
-          break;
-        }
-      }
+      const target = resolveAccount(accountId);
       if (!target) {
         return { error: `Account not found: ${accountId}` };
       }
@@ -259,10 +253,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       }
       searchFolder(folder);
     } else if (accountId) {
-      let target = null;
-      for (const account of MailServices.accounts.accounts) {
-        if (account.key === accountId) { target = account; break; }
-      }
+      const target = resolveAccount(accountId);
       if (!target) {
         return { error: `Account not found: ${accountId}` };
       }

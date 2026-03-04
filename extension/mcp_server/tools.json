@@ -18,7 +18,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Optional account ID (from listAccounts) to limit results to a single account" },
+        "accountId": { "type": "string", "description": "Account ID, email address, or display name to limit results to a single account" },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox') to list only that folder and its subfolders" },
         "includeLocal": { "type": "boolean", "description": "Include Local Folders account (default: false)" }
       },
@@ -38,7 +38,7 @@
         "subject": { "type": "string", "description": "Filter by subject line (substring match)" },
         "hasAttachments": { "type": "boolean", "description": "Only return messages with attachments (default: false)" },
         "taggedWith": { "type": "string", "description": "Only return messages with this tag key (e.g. '$label1' for Important)" },
-        "accountId": { "type": "string", "description": "Account ID (from listAccounts) to limit search to a single account. Ignored if folderPath is provided." },
+        "accountId": { "type": "string", "description": "Account ID, email address, or display name to limit search to a single account. Ignored if folderPath is provided." },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox') to limit search" },
         "startDate": { "type": "string", "description": "Filter messages on or after this ISO 8601 date" },
         "endDate": { "type": "string", "description": "Filter messages on or before this ISO 8601 date" },
@@ -307,7 +307,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Account ID to empty junk for (from listAccounts). If omitted, empties junk for all accounts." }
+        "accountId": { "type": "string", "description": "Account ID, email address, or display name to empty junk for. If omitted, empties junk for all accounts." }
       },
       "required": []
     }
@@ -319,7 +319,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Account ID to empty trash for (from listAccounts). If omitted, empties trash for all accounts." }
+        "accountId": { "type": "string", "description": "Account ID, email address, or display name to empty trash for. If omitted, empties trash for all accounts." }
       },
       "required": []
     }

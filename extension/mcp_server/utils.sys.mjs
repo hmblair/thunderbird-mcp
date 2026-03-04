@@ -125,10 +125,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     const pathParts = input.substring(slashIdx + 1).split("/").filter(Boolean);
     if (pathParts.length === 0) return null;
 
-    let account = null;
-    for (const a of MailServices.accounts.accounts) {
-      if (a.key === accountKey) { account = a; break; }
-    }
+    const account = resolveAccount(accountKey);
     if (!account) return null;
 
     const root = account.incomingServer?.rootFolder;
@@ -158,6 +155,19 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     try {
       return MailServices.accounts.findAccountForServer(folder.server)?.key || null;
     } catch { return null; }
+  }
+
+  function resolveAccount(accountId) {
+    if (!accountId || typeof accountId !== "string") return null;
+    const lower = accountId.toLowerCase();
+    for (const account of MailServices.accounts.accounts) {
+      if (account.key === accountId) return account;
+      if ((account.incomingServer?.prettyName || "").toLowerCase() === lower) return account;
+      for (const identity of account.identities) {
+        if ((identity.email || "").toLowerCase() === lower) return account;
+      }
+    }
+    return null;
   }
 
   function lookupMsgHdr(db, messageId) {
@@ -199,6 +209,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     findTrashFolder,
     findDraftsFolder,
     getAccountId,
+    resolveAccount,
     lookupMsgHdr,
     findMessage,
   };
