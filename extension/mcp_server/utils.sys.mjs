@@ -68,81 +68,45 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     }
   }
 
+  function findFolderByFlag(root, flag) {
+    if (!root) return null;
+    const stack = [root];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      try {
+        if (current && typeof current.getFlag === "function" && current.getFlag(flag)) {
+          return current;
+        }
+      } catch {}
+      try {
+        if (current?.hasSubFolders) {
+          for (const sf of current.subFolders) stack.push(sf);
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  const TRASH_FLAG = 0x00000100;
+  const JUNK_FLAG = 0x40000000;
+  const DRAFTS_FLAG = 0x00000400;
+
   function findTrashFolder(folder) {
-    const TRASH_FLAG = 0x00000100;
     let account = null;
     try {
       account = MailServices.accounts.findAccountForServer(folder.server);
     } catch (e) { mcpWarn("trash folder lookup", e);
       return null;
     }
-    const root = account?.incomingServer?.rootFolder;
-    if (!root) return null;
-
-    const stack = [root];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      try {
-        if (current && typeof current.getFlag === "function" && current.getFlag(TRASH_FLAG)) {
-          return current;
-        }
-      } catch {}
-      try {
-        if (current?.hasSubFolders) {
-          for (const sf of current.subFolders) stack.push(sf);
-        }
-      } catch {}
-    }
-    return null;
+    return findFolderByFlag(account?.incomingServer?.rootFolder, TRASH_FLAG);
   }
 
   function findJunkFolder(account) {
-    const JUNK_FLAG = 0x40000000;
-    const root = account?.incomingServer?.rootFolder;
-    if (!root) return null;
-
-    const stack = [root];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      try {
-        if (current && typeof current.getFlag === "function" && current.getFlag(JUNK_FLAG)) {
-          return current;
-        }
-      } catch {}
-      try {
-        if (current?.hasSubFolders) {
-          for (const sf of current.subFolders) stack.push(sf);
-        }
-      } catch {}
-    }
-    return null;
+    return findFolderByFlag(account?.incomingServer?.rootFolder, JUNK_FLAG);
   }
 
   function findDraftsFolder(account) {
-    const DRAFTS_FLAG = 0x00000400;
-    const root = account?.incomingServer?.rootFolder;
-    if (!root) return null;
-
-    let fallback = null;
-    const DRAFTS_NAMES = ["drafts"];
-    const stack = [root];
-    while (stack.length > 0) {
-      const current = stack.pop();
-      try {
-        if (current && typeof current.getFlag === "function" && current.getFlag(DRAFTS_FLAG)) {
-          return current;
-        }
-      } catch {}
-      if (!fallback && current?.prettyName && DRAFTS_NAMES.includes(current.prettyName.toLowerCase())) {
-        fallback = current;
-      }
-      try {
-        if (current?.hasSubFolders) {
-          for (const sf of current.subFolders) stack.push(sf);
-        }
-      } catch {}
-    }
-    return fallback;
+    return findFolderByFlag(account?.incomingServer?.rootFolder, DRAFTS_FLAG);
   }
 
   function resolveFolder(input) {
@@ -196,30 +160,25 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     } catch { return null; }
   }
 
+  function lookupMsgHdr(db, messageId) {
+    let hdr = null;
+    if (typeof db.getMsgHdrForMessageID === "function") {
+      try { hdr = db.getMsgHdrForMessageID(messageId); } catch { hdr = null; }
+    }
+    if (!hdr) {
+      for (const h of db.enumerateMessages()) {
+        if (h.messageId === messageId) { hdr = h; break; }
+      }
+    }
+    return hdr;
+  }
+
   function findMessage(messageId, folderPath) {
     const opened = openFolder(folderPath);
     if (opened.error) return opened;
 
     const { folder, db } = opened;
-    let msgHdr = null;
-
-    const hasDirectLookup = typeof db.getMsgHdrForMessageID === "function";
-    if (hasDirectLookup) {
-      try {
-        msgHdr = db.getMsgHdrForMessageID(messageId);
-      } catch (e) { mcpWarn("message ID lookup", e);
-        msgHdr = null;
-      }
-    }
-
-    if (!msgHdr) {
-      for (const hdr of db.enumerateMessages()) {
-        if (hdr.messageId === messageId) {
-          msgHdr = hdr;
-          break;
-        }
-      }
-    }
+    const msgHdr = lookupMsgHdr(db, messageId);
 
     if (!msgHdr) {
       return { error: `Message not found: ${messageId}` };
@@ -240,6 +199,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     findTrashFolder,
     findDraftsFolder,
     getAccountId,
+    lookupMsgHdr,
     findMessage,
   };
 }

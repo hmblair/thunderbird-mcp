@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId,
+    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, lookupMsgHdr,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -626,25 +626,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       const found = [];
       const notFound = [];
       for (const msgId of messageIds) {
-        if (typeof msgId !== "string" || !msgId) {
-          notFound.push(msgId);
-          continue;
-        }
-        let hdr = null;
-        const hasDirectLookup = typeof db.getMsgHdrForMessageID === "function";
-        if (hasDirectLookup) {
-          try { hdr = db.getMsgHdrForMessageID(msgId); } catch { hdr = null; }
-        }
-        if (!hdr) {
-          for (const h of db.enumerateMessages()) {
-            if (h.messageId === msgId) { hdr = h; break; }
-          }
-        }
-        if (hdr) {
-          found.push(hdr);
-        } else {
-          notFound.push(msgId);
-        }
+        if (typeof msgId !== "string" || !msgId) { notFound.push(msgId); continue; }
+        const hdr = lookupMsgHdr(db, msgId);
+        if (hdr) { found.push(hdr); } else { notFound.push(msgId); }
       }
 
       if (found.length === 0) {
@@ -707,25 +691,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       const foundHdrs = [];
       const notFound = [];
       for (const msgId of messageIds) {
-        if (typeof msgId !== "string" || !msgId) {
-          notFound.push(msgId);
-          continue;
-        }
-        let hdr = null;
-        const hasDirectLookup = typeof db.getMsgHdrForMessageID === "function";
-        if (hasDirectLookup) {
-          try { hdr = db.getMsgHdrForMessageID(msgId); } catch { hdr = null; }
-        }
-        if (!hdr) {
-          for (const h of db.enumerateMessages()) {
-            if (h.messageId === msgId) { hdr = h; break; }
-          }
-        }
-        if (hdr) {
-          foundHdrs.push(hdr);
-        } else {
-          notFound.push(msgId);
-        }
+        if (typeof msgId !== "string" || !msgId) { notFound.push(msgId); continue; }
+        const hdr = lookupMsgHdr(db, msgId);
+        if (hdr) { foundHdrs.push(hdr); } else { notFound.push(msgId); }
       }
 
       if (foundHdrs.length === 0) {
