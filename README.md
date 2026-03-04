@@ -100,7 +100,7 @@ Add to your MCP client config (e.g. `~/.claude.json` for Claude Code):
 ```json
 {
   "mcpServers": {
-    "thunderbird-mail": {
+    "thunderbird-mcp": {
       "command": "node",
       "args": ["/absolute/path/to/thunderbird-mcp/mcp-bridge.cjs"]
     }
