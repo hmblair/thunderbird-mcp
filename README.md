@@ -184,7 +184,7 @@ thunderbird-mcp/
 - IMAP folder databases can be stale until you click on them in Thunderbird
 - Email bodies with control characters are sanitized to avoid breaking JSON
 - HTML-only emails are converted to plain text (original formatting is lost)
-- **EWS (Exchange) drafts**: Drafts created via `createDraft` on EWS accounts may not delete properly through `deleteMessages` or the Thunderbird UI. Right-click the Drafts folder > "Repair Folder" to force a sync and clear stale entries. This is a Thunderbird EWS backend limitation.
+- **EWS (Exchange) drafts**: Drafts created via `createDraft` on EWS accounts may not delete properly through `deleteMessages` or the Thunderbird UI. **Do not use "Repair Folder" on the EWS Drafts folder** — it can permanently remove the folder from the local cache, requiring an account re-add to restore it. This is a Thunderbird EWS backend limitation.
 
 ---
 

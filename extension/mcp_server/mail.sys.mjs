@@ -6,7 +6,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
-  const MAX_SEARCH_RESULTS_CAP = 200;
+  const MAX_SEARCH_RESULTS_CAP = 1000;
   const SEARCH_COLLECTION_CAP = 1000;
 
   function listAccounts(args) {

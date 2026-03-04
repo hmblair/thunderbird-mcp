@@ -36,7 +36,7 @@
         "folderPath": { "type": "string", "description": "Optional folder URI to limit search to that folder and its subfolders" },
         "startDate": { "type": "string", "description": "Filter messages on or after this ISO 8601 date" },
         "endDate": { "type": "string", "description": "Filter messages on or before this ISO 8601 date" },
-        "maxResults": { "type": "number", "description": "Maximum number of results to return (default 50, max 200)" },
+        "maxResults": { "type": "number", "description": "Maximum number of results to return (default 50, max 1000)" },
         "sortOrder": { "type": "string", "description": "Date sort order: asc (oldest first) or desc (newest first, default)" },
         "unreadOnly": { "type": "boolean", "description": "Only return unread messages (default: false)" },
         "flaggedOnly": { "type": "boolean", "description": "Only return flagged/starred messages (default: false)" },
