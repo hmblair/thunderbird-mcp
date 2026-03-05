@@ -172,7 +172,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         for (const msgHdr of db.enumerateMessages()) {
           if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
 
-          const dedupKey = `${folder.URI}\t${msgHdr.messageId}`;
+          const dedupKey = msgHdr.messageId;
           if (seenMsgs.has(dedupKey)) continue;
           seenMsgs.add(dedupKey);
 
