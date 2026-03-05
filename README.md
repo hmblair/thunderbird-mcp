@@ -122,20 +122,17 @@ Then install `dist/thunderbird-mcp.xpi` in Thunderbird (Tools > Add-ons > Instal
 
 ### 2. Configure your MCP client
 
-Add to your MCP client config (e.g. `~/.claude.json` for Claude Code):
-
-```json
-{
-  "mcpServers": {
-    "thunderbird-mcp": {
-      "command": "node",
-      "args": ["/absolute/path/to/thunderbird-mcp/mcp-bridge.cjs"]
-    }
-  }
-}
+```bash
+make install
 ```
 
-That's it. Your AI can now access Thunderbird.
+This walks you through adding thunderbird-mcp to your MCP client configs (Claude Code and/or OpenCode). Tools are split into separate servers (`thunderbird-mail`, `thunderbird-calendar`, `thunderbird-feeds`) so you can enable them independently.
+
+To remove the config entries later:
+
+```bash
+make uninstall
+```
 
 ---
 

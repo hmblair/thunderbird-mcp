@@ -1,6 +1,6 @@
 VERSION := $(shell node -p "require('./package.json').version")
 
-.PHONY: build clean tag
+.PHONY: build clean tag install uninstall
 
 build: dist/thunderbird-mcp.xpi
 
@@ -17,6 +17,12 @@ dist/thunderbird-mcp.xpi: extension/**/*
 tag:
 	@git tag -a "v$(VERSION)" -m "v$(VERSION)"
 	@echo "Tagged v$(VERSION)"
+
+install:
+	@node scripts/install.cjs
+
+uninstall:
+	@node scripts/install.cjs uninstall
 
 clean:
 	rm -rf dist/
