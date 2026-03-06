@@ -186,6 +186,9 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                   }
                   const expectedType = schema.properties?.[field]?.type;
                   if (expectedType === "array") {
+                    if (typeof args[field] === "string") {
+                      try { args[field] = JSON.parse(args[field]); } catch {}
+                    }
                     if (!Array.isArray(args[field])) {
                       throw new Error(`Field "${field}" must be an array, got ${typeof args[field]}`);
                     }
