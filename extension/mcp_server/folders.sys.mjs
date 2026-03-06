@@ -151,8 +151,9 @@ export function createFolderHandlers({ MailServices, utils }) {
         if (!root) continue;
         const trash = findTrashFolder({ server: account.incomingServer });
         if (trash) {
+          const messageCount = trash.getTotalMessages(false);
           trash.emptyTrash(null);
-          results.push({ accountId: account.key, folder: trash.URI });
+          results.push({ accountId: account.key, folder: trash.URI, messagesDeleted: messageCount });
         }
       }
 
