@@ -258,7 +258,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
         FeedUtils.downloadFeed(rf, null, false, null);
       }
       return {
-        message: `Feed refresh initiated for ${rootFolders.length} account(s)`,
+        message: `Feed refresh initiated for ${rootFolders.length} ${rootFolders.length === 1 ? "account" : "accounts"}`,
       };
     }
 

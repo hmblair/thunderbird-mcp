@@ -645,7 +645,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       folder.deleteMessages(found, null, false, true, null, false);
 
       const result = {
-        message: `Requested deletion of ${found.length} message(s)`,
+        message: `Requested deletion of ${found.length} ${found.length === 1 ? "message" : "messages"}`,
         requested: found.map(h => h.messageId),
         accountId: getAccountId(folder),
         folder: folder.URI,
@@ -755,7 +755,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         actions.push({ type: isCopy ? "copy" : "move", to: targetFolder.URI });
       }
 
-      const result = { message: `Requested update of ${foundHdrs.length} message(s)`, updated: foundHdrs.length, actions, accountId: getAccountId(folder) };
+      const result = { message: `Requested update of ${foundHdrs.length} ${foundHdrs.length === 1 ? "message" : "messages"}`, updated: foundHdrs.length, actions, accountId: getAccountId(folder) };
       if (notFound.length > 0) result.notFound = notFound;
       return result;
     } catch (e) {
