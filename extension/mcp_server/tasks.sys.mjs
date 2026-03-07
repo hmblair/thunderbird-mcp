@@ -190,16 +190,6 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
           changes.push("priority");
         }
       }
-      if (percentComplete !== undefined) {
-        const pct = Number(percentComplete);
-        if (pct >= 0 && pct <= 100) {
-          newItem.percentComplete = pct;
-          if (pct === 100) {
-            newItem.completedDate = cal.dtz.jsDateToDateTime(new Date(), cal.dtz.defaultTimezone);
-          }
-          changes.push("percentComplete");
-        }
-      }
       if (status !== undefined) {
         const validStatuses = ["NONE", "IN-PROCESS", "COMPLETED", "NEEDS-ACTION", "CANCELLED"];
         if (validStatuses.includes(status)) {
@@ -209,6 +199,16 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
             newItem.completedDate = cal.dtz.jsDateToDateTime(new Date(), cal.dtz.defaultTimezone);
           }
           changes.push("status");
+        }
+      }
+      if (percentComplete !== undefined) {
+        const pct = Number(percentComplete);
+        if (pct >= 0 && pct <= 100) {
+          newItem.percentComplete = pct;
+          if (pct === 100) {
+            newItem.completedDate = cal.dtz.jsDateToDateTime(new Date(), cal.dtz.defaultTimezone);
+          }
+          changes.push("percentComplete");
         }
       }
 

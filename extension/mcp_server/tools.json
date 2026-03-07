@@ -39,8 +39,7 @@
         "hasAttachments": { "type": "boolean", "description": "Only return messages with attachments (default: false)" },
         "taggedWith": { "type": "string", "description": "Only return messages with this tag key (e.g. '$label1' for Important)" },
         "accountId": { "type": "string", "description": "Account ID, email address, or display name to limit search to a single account. Ignored if folderPath is provided." },
-        "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox') to limit search to one folder and its subfolders" },
-        "folderPaths": { "type": "array", "items": { "type": "string" }, "description": "Array of folder URIs or short paths to search across multiple specific folders. Use folderPath or folderPaths, not both." },
+        "folderPath": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Folder URI or short path (e.g. 'account1/Inbox'), or an array of them, to limit search to specific folders and their subfolders" },
         "startDate": { "type": "string", "description": "Filter messages on or after this ISO 8601 date" },
         "endDate": { "type": "string", "description": "Filter messages on or before this ISO 8601 date" },
         "maxResults": { "type": "number", "description": "Maximum number of results to return (default 50, max 1000)" },
@@ -223,10 +222,10 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "messageIds": { "type": "array", "items": { "type": "string" }, "description": "Array of message IDs to delete" },
+        "messageId": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Message ID or array of message IDs to delete" },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox')" }
       },
-      "required": ["messageIds", "folderPath"]
+      "required": ["messageId", "folderPath"]
     }
   },
   {
@@ -236,8 +235,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "messageId": { "type": "string", "description": "A single message ID (from searchMessages results). Use messageId or messageIds, not both." },
-        "messageIds": { "type": "array", "items": { "type": "string" }, "description": "Array of message IDs for bulk operations. Use messageId or messageIds, not both." },
+        "messageId": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Message ID or array of message IDs to update" },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox')" },
         "read": { "type": "boolean", "description": "Set to true/false to mark read/unread (optional)" },
         "flagged": { "type": "boolean", "description": "Set to true/false to flag/unflag (optional)" },

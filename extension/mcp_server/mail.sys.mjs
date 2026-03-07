@@ -135,7 +135,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   const DRAFTS_FOLDER_FLAG = 0x00000400;
 
   function searchMessages(args) {
-    const { query, folderPath, folderPaths, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope } = args;
+    let { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope } = args;
+    if (typeof folderPath === "string") folderPath = [folderPath];
+    const folderPaths = Array.isArray(folderPath) && folderPath.length > 0 ? folderPath : null;
     const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
@@ -160,7 +162,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
     const seenMsgs = new Set();
     let count = 0;
-    const effectiveScope = folderPath || folderPaths ? null : (scope || "inbox");
+    const effectiveScope = folderPaths ? null : (scope || "inbox");
 
     function isScopeMatch(folder) {
       if (!effectiveScope || effectiveScope === "all") return true;
@@ -281,13 +283,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       }
     }
 
-    if (folderPath) {
-      const folder = resolveFolder(folderPath);
-      if (!folder) {
-        return { error: `Folder not found: ${folderPath}` };
-      }
-      searchFolder(folder);
-    } else if (Array.isArray(folderPaths) && folderPaths.length > 0) {
+    if (folderPaths) {
       for (const fp of folderPaths) {
         const folder = resolveFolder(fp);
         if (!folder) {
@@ -643,14 +639,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function deleteMessages(args) {
-    let { messageIds, folderPath } = args;
+    let { messageId, folderPath } = args;
     try {
-      if (typeof messageIds === "string") {
-        try { messageIds = JSON.parse(messageIds); } catch { /* leave as-is */ }
+      if (typeof messageId === "string") messageId = [messageId];
+      if (!Array.isArray(messageId) || messageId.length === 0) {
+        return { error: "messageId is required" };
       }
-      if (!Array.isArray(messageIds) || messageIds.length === 0) {
-        return { error: "messageIds must be a non-empty array of strings" };
-      }
+      const messageIds = messageId;
       if (typeof folderPath !== "string" || !folderPath) {
         return { error: "folderPath must be a non-empty string" };
       }
@@ -681,20 +676,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function updateMessage(args) {
-    let { messageId, messageIds, folderPath, read, flagged, moveTo, copyTo, trash, addTags, removeTags } = args;
+    let { messageId, folderPath, read, flagged, moveTo, copyTo, trash, addTags, removeTags } = args;
     try {
-      if (typeof messageIds === "string") {
-        try { messageIds = JSON.parse(messageIds); } catch { /* leave as-is */ }
+      if (typeof messageId === "string") messageId = [messageId];
+      if (!Array.isArray(messageId) || messageId.length === 0) {
+        return { error: "messageId is required" };
       }
-      if (messageId && messageIds) {
-        return { error: "Specify messageId or messageIds, not both" };
-      }
-      if (messageId) {
-        messageIds = [messageId];
-      }
-      if (!Array.isArray(messageIds) || messageIds.length === 0) {
-        return { error: "messageId or messageIds is required" };
-      }
+      const messageIds = messageId;
       if (typeof folderPath !== "string" || !folderPath) {
         return { error: "folderPath must be a non-empty string" };
       }
