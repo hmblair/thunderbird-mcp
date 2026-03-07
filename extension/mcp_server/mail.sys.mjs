@@ -128,8 +128,14 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     return results;
   }
 
+  const INBOX_FLAG = 0x00001000;
+  const SENT_FLAG = 0x00000200;
+  const TRASH_FOLDER_FLAG = 0x00000100;
+  const JUNK_FOLDER_FLAG = 0x40000000;
+  const DRAFTS_FOLDER_FLAG = 0x00000400;
+
   function searchMessages(args) {
-    const { query, folderPath, folderPaths, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes } = args;
+    const { query, folderPath, folderPaths, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope } = args;
     const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
     const results = [];
     const lowerQuery = (query || "").toLowerCase();
@@ -154,9 +160,26 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
     const seenMsgs = new Set();
     let count = 0;
+    const effectiveScope = folderPath || folderPaths ? null : (scope || "inbox");
+
+    function isScopeMatch(folder) {
+      if (!effectiveScope || effectiveScope === "all") return true;
+      const flags = folder.flags || 0;
+      if (effectiveScope === "inbox") {
+        return !(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG | SENT_FLAG | DRAFTS_FOLDER_FLAG));
+      }
+      if (effectiveScope === "sent") {
+        return !!(flags & (SENT_FLAG | DRAFTS_FOLDER_FLAG));
+      }
+      if (effectiveScope === "trash") {
+        return !!(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG));
+      }
+      return true;
+    }
 
     function searchFolder(folder) {
       if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) return;
+      if (!isScopeMatch(folder)) return;
 
       try {
         if (folder.server && folder.server.type === "imap") {
@@ -704,12 +727,12 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       const actions = [];
 
       if (read !== undefined) {
-        for (const hdr of foundHdrs) hdr.markRead(read);
+        folder.markMessagesRead(foundHdrs, read);
         actions.push({ type: "read", value: read });
       }
 
       if (flagged !== undefined) {
-        for (const hdr of foundHdrs) hdr.markFlagged(flagged);
+        folder.markMessagesFlagged(foundHdrs, flagged);
         actions.push({ type: "flagged", value: flagged });
       }
 

@@ -48,7 +48,8 @@
         "unreadOnly": { "type": "boolean", "description": "Only return unread messages (default: false)" },
         "flaggedOnly": { "type": "boolean", "description": "Only return flagged/starred messages (default: false)" },
         "snippetLength": { "type": "number", "description": "Include a body preview of up to this many characters (default: 0, no snippet)" },
-        "countOnly": { "type": "boolean", "description": "Return only the count of matching messages, not the messages themselves (default: false)" }
+        "countOnly": { "type": "boolean", "description": "Return only the count of matching messages, not the messages themselves (default: false)" },
+        "scope": { "type": "string", "enum": ["inbox", "sent", "trash", "all"], "description": "Which folders to search: \"inbox\" (default) excludes Trash/Junk/Sent/Drafts, \"sent\" searches Sent and Drafts, \"trash\" searches Trash and Junk/Spam, \"all\" searches everything. Ignored when folderPath or folderPaths is specified." }
       },
       "required": []
     }
