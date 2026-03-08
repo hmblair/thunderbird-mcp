@@ -6,6 +6,10 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     console.warn(`[thunderbird-mcp] ${context}:`, error?.message || error);
   }
 
+  function mcpDebug(context, data) {
+    console.log(`[thunderbird-mcp:debug] ${context}:`, JSON.stringify(data));
+  }
+
   function parseDate(s) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
       const [y, m, d] = s.split("-").map(Number);
@@ -36,10 +40,12 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     for (const account of MailServices.accounts.accounts) {
       for (const identity of account.identities) {
         if (identity.key === emailOrId || (identity.email || "").toLowerCase() === lowerInput) {
+          mcpDebug("findIdentity", { input: emailOrId, matched: identity.email, key: identity.key, account: account.key });
           return identity;
         }
       }
     }
+    mcpDebug("findIdentity", { input: emailOrId, matched: null });
     return null;
   }
 
@@ -90,6 +96,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
   const TRASH_FLAG = 0x00000100;
   const JUNK_FLAG = 0x40000000;
   const DRAFTS_FLAG = 0x00000400;
+  const SENT_FLAG = 0x00000200;
 
   function findTrashFolder(folder) {
     let account = null;
@@ -107,6 +114,10 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
 
   function findDraftsFolder(account) {
     return findFolderByFlag(account?.incomingServer?.rootFolder, DRAFTS_FLAG);
+  }
+
+  function findSentFolder(account) {
+    return findFolderByFlag(account?.incomingServer?.rootFolder, SENT_FLAG);
   }
 
   function resolveFolder(input) {
@@ -234,6 +245,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
 
   return {
     mcpWarn,
+    mcpDebug,
     parseDate,
     formatCalDateTime,
     formatLocalJsDate,
@@ -243,6 +255,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     resolveFolder,
     findTrashFolder,
     findDraftsFolder,
+    findSentFolder,
     getAccountId,
     resolveAccount,
     lookupMsgHdr,

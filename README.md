@@ -29,6 +29,7 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 | `searchMessages` | Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them |
 | `getMessage` | Read full email content with optional attachment saving to disk |
 | `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
+| `getNewMail` | Check for new mail from the server — one account or all at once |
 | `deleteMessages` | Delete messages from a folder |
 
 ### Compose
@@ -36,8 +37,11 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 | Tool | Description |
 |------|-------------|
 | `createDraft` | Save a new message, reply, or forward as a draft — fully headless, no compose window |
+| `sendDraft` | Send a draft message by its ID — use `searchMessages` on the Drafts folder to find drafts |
 
 Drafts are saved directly to the Drafts folder. Supports new messages, replies (with threading and quoted text), and forwards (with original attachments). Add file attachments to any mode.
+
+> **EWS/Exchange limitation:** `sendDraft` sends mail correctly via SMTP but cannot save a copy to the Sent folder on EWS accounts. This is a limitation of the underlying `nsIMsgSend` API with EWS. IMAP accounts are unaffected.
 
 ### Folders
 
@@ -74,6 +78,18 @@ Drafts are saved directly to the Drafts folder. Supports new messages, replies (
 | Tool | Description |
 |------|-------------|
 | `searchContacts` | Look up contacts by name or email address |
+
+### Feeds
+
+| Tool | Description |
+|------|-------------|
+| `listFeeds` | List subscribed RSS/Atom feeds |
+| `subscribeFeed` | Subscribe to an RSS/Atom feed URL |
+| `unsubscribeFeed` | Remove a feed subscription and its cached items |
+| `refreshFeeds` | Trigger a feed refresh for a folder, account, or all RSS accounts |
+| `createFeedAccount` | Create a new RSS/Atom feed account |
+
+Feed items are stored as regular messages — use `searchMessages` and `getMessage` to read them.
 
 ### Account identifiers
 
@@ -148,7 +164,7 @@ The extension listens on `localhost:8765` only. No remote access. However, any l
 |---------|-----|
 | Extension not loading | Check Tools > Add-ons and Themes. Errors: Tools > Developer Tools > Error Console |
 | Connection refused | Make sure Thunderbird is running and the extension is enabled |
-| Missing recent emails | IMAP folders can be stale. Click the folder in Thunderbird to sync, or right-click > Properties > Repair Folder |
+| Missing recent emails | Use `getNewMail` to fetch from the server, or click the folder in Thunderbird to sync. For persistent issues, right-click > Properties > Repair Folder |
 | Tool not found after update | Reconnect MCP (`/mcp` in Claude Code) to pick up new tools |
 
 ---
@@ -193,6 +209,7 @@ thunderbird-mcp/
 │       ├── calendar.sys.mjs    # Calendar tools (events)
 │       ├── tasks.sys.mjs       # Task/todo tools
 │       ├── contacts.sys.mjs    # Contact tools
+│       ├── feeds.sys.mjs       # RSS/Atom feed tools
 │       ├── tools.json          # Tool definitions and schemas
 │       └── schema.json
 └── Makefile

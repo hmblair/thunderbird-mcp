@@ -1,7 +1,7 @@
 // tasks.sys.mjs — Task (todo) tools: list, create, update, delete
 
 export function createTaskHandlers({ cal, CalTodo, utils }) {
-  const { mcpWarn, parseDate, formatCalDateTime, findWritableCalendar } = utils;
+  const { mcpWarn, mcpDebug, parseDate, formatCalDateTime, findWritableCalendar } = utils;
 
   async function getCalendarTodos(calendar, rangeStart, rangeEnd) {
     const FILTER_ALL = 0xFFFF;
@@ -110,6 +110,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
 
   async function createTask(args) {
     const { title, dueDate, description, calendarId, priority } = args;
+    mcpDebug("createTask", { title, calendarId, dueDate });
     if (!cal || !CalTodo) {
       return { error: "Calendar module not available" };
     }
@@ -148,6 +149,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
 
   async function updateTask(args) {
     const { taskId, calendarId, title, dueDate, description, priority, percentComplete, status } = args;
+    mcpDebug("updateTask", { taskId, calendarId, title, status });
     if (!cal) {
       return { error: "Calendar not available" };
     }
@@ -225,6 +227,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
 
   async function deleteTask(args) {
     const { taskId, calendarId } = args;
+    mcpDebug("deleteTask", { taskId, calendarId });
     if (!cal) {
       return { error: "Calendar not available" };
     }

@@ -1,10 +1,11 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccounts } = utils;
+  const { mcpWarn, mcpDebug, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccounts } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
+    mcpDebug("createFolder", { parentFolderPath, name });
     try {
       if (typeof parentFolderPath !== "string" || !parentFolderPath) {
         return { error: "parentFolderPath must be a non-empty string" };
@@ -49,6 +50,7 @@ export function createFolderHandlers({ MailServices, utils }) {
 
   function renameFolder(args) {
     const { folderPath, newName } = args;
+    mcpDebug("renameFolder", { folderPath, newName });
     try {
       if (typeof folderPath !== "string" || !folderPath) {
         return { error: "folderPath must be a non-empty string" };
@@ -76,6 +78,7 @@ export function createFolderHandlers({ MailServices, utils }) {
 
   function deleteFolder(args) {
     const { folderPath, permanent } = args;
+    mcpDebug("deleteFolder", { folderPath, permanent });
     try {
       if (typeof folderPath !== "string" || !folderPath) {
         return { error: "folderPath must be a non-empty string" };
@@ -110,6 +113,7 @@ export function createFolderHandlers({ MailServices, utils }) {
 
   function moveFolder(args) {
     const { folderPath, destinationParentPath } = args;
+    mcpDebug("moveFolder", { folderPath, destinationParentPath });
     try {
       if (typeof folderPath !== "string" || !folderPath) {
         return { error: "folderPath must be a non-empty string" };
@@ -140,6 +144,7 @@ export function createFolderHandlers({ MailServices, utils }) {
   }
 
   function emptyTrash(args) {
+    mcpDebug("emptyTrash", { accountId: args?.accountId });
     const { accountId } = args || {};
     try {
       const resolved = resolveAccounts(accountId);
@@ -167,6 +172,7 @@ export function createFolderHandlers({ MailServices, utils }) {
   }
 
   function emptyJunk(args) {
+    mcpDebug("emptyJunk", { accountId: args?.accountId });
     const { accountId } = args || {};
     try {
       const resolved = resolveAccounts(accountId);
@@ -186,7 +192,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         if (msgs.length > 0) {
           junk.deleteMessages(msgs, null, true, false, null, false);
         }
-        results.push({ accountId: account.key, folder: junk.URI, requestedDeletion: msgs.length });
+        results.push({ accountId: account.key, folder: junk.URI, messagesDeleted: msgs.length });
       }
 
       if (results.length === 0) {

@@ -2,11 +2,12 @@
 
 export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUtils, utils }) {
   const {
-    mcpWarn, findMessage, formatLocalJsDate,
-    findIdentity, findDraftsFolder, getAccountId,
+    mcpWarn, mcpDebug, findMessage, formatLocalJsDate,
+    findIdentity, findDraftsFolder, findSentFolder, getAccountId,
   } = utils;
 
   function buildMimeMessage({ to, subject, body, cc, bcc, isHtml, from, inReplyTo, references, attachments }) {
+    mcpDebug("buildMimeMessage", { from, to, subject });
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const hasAttachments = attachments && attachments.length > 0;
 
@@ -151,24 +152,39 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
   }
 
   function resolveIdentityAndDrafts(from, fallbackServer) {
+    mcpDebug("resolveIdentityAndDrafts", { from, fallbackServer: fallbackServer?.hostName || null });
     const identity = findIdentity(from) || (() => {
       if (fallbackServer) {
         const acct = MailServices.accounts.findAccountForServer(fallbackServer);
+        mcpDebug("resolveIdentityAndDrafts fallback", { server: fallbackServer.hostName, account: acct?.key });
         return acct?.defaultIdentity;
       }
       return null;
     })() || MailServices.accounts.defaultAccount?.defaultIdentity;
 
-    const account = identity
-      ? MailServices.accounts.findAccountForServer(identity.incomingServer || MailServices.accounts.defaultAccount?.incomingServer)
-      : MailServices.accounts.defaultAccount;
+    // Find the account that owns this identity
+    let account = null;
+    if (identity) {
+      for (const acct of MailServices.accounts.accounts) {
+        for (const id of acct.identities) {
+          if (id.key === identity.key) {
+            account = acct;
+            break;
+          }
+        }
+        if (account) break;
+      }
+    }
+    if (!account) account = MailServices.accounts.defaultAccount;
     const draftsFolder = findDraftsFolder(account || MailServices.accounts.defaultAccount);
 
+    mcpDebug("resolveIdentityAndDrafts result", { identity: identity?.email, account: account?.key, draftsFolder: draftsFolder?.URI });
     return { identity, draftsFolder };
   }
 
   function createDraft(args) {
     const { to, subject, body, cc, bcc, isHtml, from, messageId, folderPath, replyAll, forward, attachments } = args;
+    mcpDebug("createDraft", { from, to, subject, messageId, folderPath, replyAll, forward });
 
     // Reply or forward mode: need to fetch original message asynchronously
     if (messageId && folderPath) {
@@ -339,7 +355,7 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
 
       const mime = buildMimeMessage({
         to, subject, body, cc, bcc, isHtml,
-        from: identity?.email,
+        from: from || identity?.email,
         attachments: attResult.attachments,
       });
 
@@ -354,7 +370,143 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
     }
   }
 
+  function sendDraft(args) {
+    const { messageId, folderPath } = args;
+    mcpDebug("sendDraft", { messageId, folderPath });
+    return new Promise((resolve) => {
+      try {
+        const found = findMessage(messageId, folderPath);
+        if (found.error) {
+          resolve({ error: found.error });
+          return;
+        }
+        const { msgHdr, folder } = found;
+
+        // Resolve identity from the folder's account (not the draft's From header,
+        // which may be mangled by EWS/Exchange indexing)
+        const folderAccount = MailServices.accounts.findAccountForServer(folder.server);
+        const identity = folderAccount?.defaultIdentity
+          || MailServices.accounts.defaultAccount?.defaultIdentity;
+        mcpDebug("sendDraft identity", {
+          folderServer: folder.server?.hostName,
+          folderAccount: folderAccount?.key,
+          identity: identity?.email,
+          author: msgHdr.mime2DecodedAuthor || msgHdr.author,
+        });
+        if (!identity) {
+          resolve({ error: "Could not determine sender identity" });
+          return;
+        }
+        const account = MailServices.accounts.findAccountForServer(
+          identity.incomingServer || folder.server
+        ) || MailServices.accounts.defaultAccount;
+
+        // Stream the raw message to a temp file
+        const streamUri = msgHdr.folder.getUriForMsg(msgHdr);
+        const msgService = MailServices.messageServiceFromURI(streamUri);
+
+        const tmpFile = Services.dirsvc.get("TmpD", Ci.nsIFile);
+        tmpFile.append("thunderbird-mcp-send.eml");
+        tmpFile.createUnique(Ci.nsIFile.NORMAL_FILE_TYPE, 0o600);
+
+        const foStream = Cc["@mozilla.org/network/file-output-stream;1"]
+          .createInstance(Ci.nsIFileOutputStream);
+        foStream.init(tmpFile, 0x02 | 0x08 | 0x20, 0o600, 0);
+
+        const streamListener = {
+          QueryInterface: ChromeUtils.generateQI(["nsIStreamListener", "nsIRequestObserver"]),
+          onStartRequest() {},
+          onDataAvailable(request, inputStream, offset, count) {
+            const scriptableStream = Cc["@mozilla.org/scriptableinputstream;1"]
+              .createInstance(Ci.nsIScriptableInputStream);
+            scriptableStream.init(inputStream);
+            const data = scriptableStream.read(count);
+            foStream.write(data, data.length);
+          },
+          onStopRequest(request, statusCode) {
+            foStream.close();
+
+            try {
+              // Build compFields from the draft headers
+              const compFields = Cc["@mozilla.org/messengercompose/composefields;1"]
+                .createInstance(Ci.nsIMsgCompFields);
+              compFields.to = msgHdr.mime2DecodedRecipients || msgHdr.recipients || "";
+              compFields.cc = msgHdr.ccList || "";
+              compFields.bcc = msgHdr.bccList || "";
+              compFields.subject = msgHdr.mime2DecodedSubject || msgHdr.subject || "";
+              compFields.from = identity.email;
+
+              // Set the Sent folder for filing the copy
+              if (identity.doFcc) {
+                let fcc = identity.fccFolder || "";
+                if (!fcc) {
+                  const sentFolder = findSentFolder(account);
+                  if (sentFolder) fcc = sentFolder.URI;
+                }
+                compFields.fcc = fcc;
+                mcpDebug("sendDraft fcc", { doFcc: true, fcc, account: account?.key });
+              }
+
+              // Preserve threading headers
+              try {
+                const inReplyTo = msgHdr.getStringProperty("inReplyTo");
+                if (inReplyTo) compFields.inReplyTo = inReplyTo;
+              } catch {}
+              try {
+                const refs = msgHdr.getStringProperty("references");
+                if (refs) compFields.references = refs;
+              } catch {}
+
+              const msgSend = Cc["@mozilla.org/messengercompose/send;1"]
+                .createInstance(Ci.nsIMsgSend);
+
+              const sendListener = {
+                QueryInterface: ChromeUtils.generateQI(["nsIMsgSendListener"]),
+                onStartSending() {},
+                onSendNotPerformed() {},
+                onProgress() {},
+                onStatus() {},
+                onGetDraftFolderURI() {},
+                onStopSending(msgID, status) {
+                  try { tmpFile.remove(false); } catch {}
+
+                  if (status === 0) {
+                    // Delete the draft after successful send
+                    try {
+                      folder.deleteMessages([msgHdr], null, true, true, null, false);
+                    } catch (e) { mcpWarn("draft cleanup", e); }
+                    resolve({
+                      message: "Message sent",
+                      accountId: account ? account.key : null,
+                    });
+                  } else {
+                    resolve({ error: `Send failed with status: ${status}` });
+                  }
+                },
+              };
+
+              // nsMsgDeliverNow = 0
+              msgSend.sendMessageFile(
+                identity, account ? account.key : "", compFields,
+                tmpFile, false, false, 0, null,
+                sendListener, null, null
+              );
+            } catch (e) {
+              try { tmpFile.remove(false); } catch {}
+              resolve({ error: e.toString() });
+            }
+          },
+        };
+
+        msgService.streamMessage(streamUri, streamListener, null, null, false, "", true);
+      } catch (e) {
+        resolve({ error: e.toString() });
+      }
+    });
+  }
+
   return {
     createDraft,
+    sendDraft,
   };
 }

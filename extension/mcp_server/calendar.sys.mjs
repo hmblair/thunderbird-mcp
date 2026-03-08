@@ -1,7 +1,7 @@
 // calendar.sys.mjs — Calendar tools: list, create, update, delete events
 
 export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
-  const { mcpWarn, parseDate, formatCalDateTime, findWritableCalendar } = utils;
+  const { mcpWarn, mcpDebug, parseDate, formatCalDateTime, findWritableCalendar } = utils;
 
   function listCalendars() {
     if (!cal) {
@@ -49,6 +49,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
 
   async function createEvent(args) {
     const { title, startDate, endDate, location, description, calendarId, allDay, recurrence } = args;
+    mcpDebug("createEvent", { title, startDate, endDate, calendarId, allDay });
     if (!cal || !CalEvent) {
       return { error: "Calendar module not available" };
     }
@@ -252,6 +253,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
 
   async function updateEvent(args) {
     const { eventId, calendarId, title, startDate, endDate, location, description, recurrence } = args;
+    mcpDebug("updateEvent", { eventId, calendarId, title });
     if (!cal) {
       return { error: "Calendar not available" };
     }
@@ -359,6 +361,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
 
   async function deleteEvent(args) {
     const { eventId, calendarId } = args;
+    mcpDebug("deleteEvent", { eventId, calendarId });
     if (!cal) {
       return { error: "Calendar not available" };
     }

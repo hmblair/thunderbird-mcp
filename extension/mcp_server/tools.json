@@ -222,20 +222,20 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "messageId": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Message ID or array of message IDs to delete" },
+        "messageIds": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Message ID or array of message IDs to delete" },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox')" }
       },
-      "required": ["messageId", "folderPath"]
+      "required": ["messageIds", "folderPath"]
     }
   },
   {
-    "name": "updateMessage",
-    "title": "Update Message",
-    "description": "Update one or more messages: mark read/unread, flag/unflag, add/remove tags, move, copy, or trash. Supply messageId for a single message or messageIds for bulk operations.",
+    "name": "updateMessages",
+    "title": "Update Messages",
+    "description": "Update one or more messages: mark read/unread, flag/unflag, add/remove tags, move, copy, or trash.",
     "inputSchema": {
       "type": "object",
       "properties": {
-        "messageId": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Message ID or array of message IDs to update" },
+        "messageIds": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Message ID or array of message IDs to update" },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox')" },
         "read": { "type": "boolean", "description": "Set to true/false to mark read/unread (optional)" },
         "flagged": { "type": "boolean", "description": "Set to true/false to flag/unflag (optional)" },
@@ -245,7 +245,7 @@
         "copyTo": { "type": "string", "description": "Destination folder URI or short path (e.g. 'account1/Inbox') to copy messages to. Only one of moveTo/copyTo/trash allowed." },
         "trash": { "type": "boolean", "description": "Set to true to move messages to Trash. Only one of moveTo/copyTo/trash allowed." }
       },
-      "required": ["folderPath"]
+      "required": ["messageIds", "folderPath"]
     }
   },
   {
@@ -348,6 +348,19 @@
     }
   },
   {
+    "name": "sendDraft",
+    "title": "Send Draft",
+    "description": "Send a draft message. Use searchMessages on the Drafts folder to find draft message IDs.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string", "description": "The message ID of the draft (from searchMessages results)" },
+        "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Drafts')" }
+      },
+      "required": ["messageId", "folderPath"]
+    }
+  },
+  {
     "name": "createFeedAccount",
     "title": "Create Feed Account",
     "description": "Create a new RSS/Atom feed account",
@@ -397,6 +410,18 @@
         "folderPath": { "type": "string", "description": "Folder URI or short path to narrow the search if the same URL exists in multiple accounts" }
       },
       "required": ["url"]
+    }
+  },
+  {
+    "name": "getNewMail",
+    "title": "Get New Mail",
+    "description": "Check for new mail from the server. Can check a specific account or all accounts.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "accountId": { "type": "string", "description": "Account ID, email address, or display name. If omitted, checks all accounts." }
+      },
+      "required": []
     }
   },
   {

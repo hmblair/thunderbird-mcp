@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, resolveMsgHdrs,
+    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, resolveMsgHdrs,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -136,6 +136,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
   function searchMessages(args) {
     let { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope } = args;
+    mcpDebug("searchMessages", { query, folderPath, accountId, from, to, subject, scope });
     if (typeof folderPath === "string") folderPath = [folderPath];
     const folderPaths = Array.isArray(folderPath) && folderPath.length > 0 ? folderPath : null;
     const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
@@ -320,6 +321,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
   function getMessage(args) {
     const { messageId, folderPath, saveAttachments } = args;
+    mcpDebug("getMessage", { messageId, folderPath });
     return new Promise((resolve) => {
       try {
         const found = findMessage(messageId, folderPath);
@@ -639,13 +641,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   }
 
   function deleteMessages(args) {
-    let { messageId, folderPath } = args;
+    let { messageIds, folderPath } = args;
+    mcpDebug("deleteMessages", { messageIds, folderPath });
     try {
-      if (typeof messageId === "string") messageId = [messageId];
-      if (!Array.isArray(messageId) || messageId.length === 0) {
-        return { error: "messageId is required" };
+      if (typeof messageIds === "string") messageIds = [messageIds];
+      if (!Array.isArray(messageIds) || messageIds.length === 0) {
+        return { error: "messageIds is required" };
       }
-      const messageIds = messageId;
       if (typeof folderPath !== "string" || !folderPath) {
         return { error: "folderPath must be a non-empty string" };
       }
@@ -675,14 +677,14 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     }
   }
 
-  function updateMessage(args) {
-    let { messageId, folderPath, read, flagged, moveTo, copyTo, trash, addTags, removeTags } = args;
+  function updateMessages(args) {
+    let { messageIds, folderPath, read, flagged, moveTo, copyTo, trash, addTags, removeTags } = args;
+    mcpDebug("updateMessages", { messageIds, folderPath, read, flagged, moveTo, copyTo, trash });
     try {
-      if (typeof messageId === "string") messageId = [messageId];
-      if (!Array.isArray(messageId) || messageId.length === 0) {
-        return { error: "messageId is required" };
+      if (typeof messageIds === "string") messageIds = [messageIds];
+      if (!Array.isArray(messageIds) || messageIds.length === 0) {
+        return { error: "messageIds is required" };
       }
-      const messageIds = messageId;
       if (typeof folderPath !== "string" || !folderPath) {
         return { error: "folderPath must be a non-empty string" };
       }
@@ -774,12 +776,49 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     }
   }
 
+  function getNewMail(args) {
+    const { accountId } = args || {};
+    mcpDebug("getNewMail", { accountId });
+    try {
+      if (accountId) {
+        const account = resolveAccount(accountId);
+        if (!account) {
+          return { error: `Account not found: ${accountId}` };
+        }
+        const server = account.incomingServer;
+        if (server.type === "none") {
+          return { error: "Local Folders account does not support fetching mail" };
+        }
+        server.getNewMessages(server.rootFolder, null, null);
+        return { message: "Fetch initiated", accountId: account.key };
+      }
+
+      let count = 0;
+      for (const account of MailServices.accounts.accounts) {
+        const server = account.incomingServer;
+        if (server.type === "none" || server.type === "rss") continue;
+        try {
+          server.getNewMessages(server.rootFolder, null, null);
+          count++;
+        } catch (e) { mcpWarn("getNewMail", e); }
+      }
+
+      if (count === 0) {
+        return { error: "No mail accounts found" };
+      }
+      return { message: `Fetch initiated for ${count} ${count === 1 ? "account" : "accounts"}` };
+    } catch (e) {
+      return { error: e.toString() };
+    }
+  }
+
   return {
     listAccounts,
     listFolders,
     searchMessages,
     getMessage,
     deleteMessages,
-    updateMessage,
+    updateMessages,
+    getNewMail,
   };
 }

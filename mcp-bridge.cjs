@@ -24,7 +24,7 @@ const VERSION = require(path.join(__dirname, 'package.json')).version;
 const TOOL_GROUPS = {
   mail: [
     'listAccounts', 'listFolders', 'searchMessages', 'getMessage',
-    'deleteMessages', 'updateMessage', 'createDraft', 'searchContacts',
+    'deleteMessages', 'updateMessages', 'getNewMail', 'createDraft', 'sendDraft', 'searchContacts',
     'createFolder', 'renameFolder', 'deleteFolder', 'moveFolder',
     'emptyJunk', 'emptyTrash',
   ],

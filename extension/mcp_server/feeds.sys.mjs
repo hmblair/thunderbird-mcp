@@ -10,7 +10,7 @@
  */
 
 export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, utils, FeedUtils }) {
-  const { resolveFolder, resolveAccount } = utils;
+  const { mcpDebug, resolveFolder, resolveAccount } = utils;
 
   /**
    * Get the subscriptions database for a server and return all entries.
@@ -50,6 +50,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
   // ── Handlers ──────────────────────────────────────────────────────
 
   function createFeedAccount(args) {
+    mcpDebug("createFeedAccount", {});
     if (!FeedUtils) {
       return { error: "Feed module not available" };
     }
@@ -118,6 +119,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
   }
 
   async function subscribeFeed(args) {
+    mcpDebug("subscribeFeed", { url: args?.url, accountId: args?.accountId });
     if (!FeedUtils) {
       return { error: "Feed module not available" };
     }
@@ -165,6 +167,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
   }
 
   function unsubscribeFeed(args) {
+    mcpDebug("unsubscribeFeed", { url: args?.url });
     if (!FeedUtils) {
       return { error: "Feed module not available" };
     }
@@ -231,6 +234,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
   }
 
   function refreshFeeds(args) {
+    mcpDebug("refreshFeeds", { folderPath: args?.folderPath, accountId: args?.accountId });
     if (!FeedUtils) {
       return { error: "Feed module not available" };
     }
