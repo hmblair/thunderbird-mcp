@@ -677,6 +677,111 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     }
   }
 
+  function deleteMessagesBySender(args) {
+    let { from, accountId, scope } = args;
+    mcpDebug("deleteMessagesBySender", { from, accountId, scope });
+    try {
+      if (!from) {
+        return { error: "from is required (sender name or email substring)" };
+      }
+      if (typeof from === "string") from = [from];
+      if (!Array.isArray(from) || from.length === 0) {
+        return { error: "from must be a non-empty string or array of strings" };
+      }
+
+      const lowerFroms = from.map(f => f.toLowerCase());
+      const effectiveScope = scope || "all";
+      const targetAccountId = accountId || null;
+
+      function isScopeMatch(folder) {
+        if (effectiveScope === "all") return true;
+        const flags = folder.flags || 0;
+        if (effectiveScope === "inbox") {
+          return !(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG | SENT_FLAG | DRAFTS_FOLDER_FLAG));
+        }
+        if (effectiveScope === "sent") {
+          return !!(flags & (SENT_FLAG | DRAFTS_FOLDER_FLAG));
+        }
+        if (effectiveScope === "trash") {
+          return !!(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG));
+        }
+        return true;
+      }
+
+      const folderBatches = new Map();
+      let totalFound = 0;
+      const seenMsgs = new Set();
+
+      function collectFromFolder(folder) {
+        if (!isScopeMatch(folder)) return;
+
+        try {
+          if (folder.server && folder.server.type === "imap") {
+            try { folder.updateFolder(null); } catch (e) { mcpWarn("IMAP folder refresh", e); }
+          }
+
+          const db = folder.msgDatabase;
+          if (!db) return;
+
+          const matched = [];
+          for (const msgHdr of db.enumerateMessages()) {
+            const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
+            if (lowerFroms.some(lf => author.includes(lf))) {
+              matched.push(msgHdr);
+              const dedupKey = msgHdr.messageId;
+              if (!seenMsgs.has(dedupKey)) {
+                seenMsgs.add(dedupKey);
+                totalFound++;
+              }
+            }
+          }
+
+          if (matched.length > 0) {
+            folderBatches.set(folder, matched);
+            totalFound += matched.length;
+          }
+        } catch (e) { mcpWarn("deleteMessagesBySender enumeration", e); }
+
+        if (folder.hasSubFolders) {
+          for (const subfolder of folder.subFolders) {
+            collectFromFolder(subfolder);
+          }
+        }
+      }
+
+      if (targetAccountId) {
+        const target = resolveAccount(targetAccountId);
+        if (!target) {
+          return { error: `Account not found: ${targetAccountId}` };
+        }
+        collectFromFolder(target.incomingServer.rootFolder);
+      } else {
+        for (const account of MailServices.accounts.accounts) {
+          if (account.incomingServer.type === "none") continue;
+          collectFromFolder(account.incomingServer.rootFolder);
+        }
+      }
+
+      if (totalFound === 0) {
+        return { message: "No messages found matching the specified sender(s)", deleted: 0 };
+      }
+
+      const deletedByFolder = [];
+      for (const [folder, hdrs] of folderBatches) {
+        folder.deleteMessages(hdrs, null, false, true, null, false);
+        deletedByFolder.push({ folder: folder.URI, count: hdrs.length });
+      }
+
+      return {
+        message: `Requested deletion of ${totalFound} ${totalFound === 1 ? "message" : "messages"} from ${from.join(", ")}`,
+        deleted: totalFound,
+        folders: deletedByFolder,
+      };
+    } catch (e) {
+      return { error: e.toString() };
+    }
+  }
+
   function updateMessages(args) {
     let { messageIds, folderPath, read, flagged, moveTo, copyTo, trash, addTags, removeTags } = args;
     mcpDebug("updateMessages", { messageIds, folderPath, read, flagged, moveTo, copyTo, trash });
@@ -818,6 +923,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     searchMessages,
     getMessage,
     deleteMessages,
+    deleteMessagesBySender,
     updateMessages,
     getNewMail,
   };

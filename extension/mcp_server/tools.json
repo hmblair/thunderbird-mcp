@@ -232,6 +232,20 @@
     }
   },
   {
+    "name": "deleteMessagesBySender",
+    "title": "Delete Messages by Sender",
+    "description": "Delete all messages from one or more senders across all folders in an account. Searches and deletes in one step.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "from": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Sender name or email substring to match (or array of them). All messages matching any of these senders will be deleted." },
+        "accountId": { "type": "string", "description": "Account ID, email address, or display name to limit deletion to a single account (optional, defaults to all accounts)" },
+        "scope": { "type": "string", "enum": ["inbox", "sent", "trash", "all"], "description": "Which folders to search: 'all' (default) searches everything, 'inbox' excludes Trash/Junk/Sent/Drafts, 'sent' searches Sent/Drafts, 'trash' searches Trash/Junk" }
+      },
+      "required": ["from"]
+    }
+  },
+  {
     "name": "updateMessages",
     "title": "Update Messages",
     "description": "Update one or more messages: mark read/unread, flag/unflag, add/remove tags, move, copy, or trash.",
