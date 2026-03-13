@@ -179,6 +179,13 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               if (!toolDef) throw new Error(`Unknown tool: ${name}`);
 
               const schema = toolDef.inputSchema;
+              if (schema && schema.properties) {
+                const known = Object.keys(schema.properties);
+                const unknown = Object.keys(args).filter(k => !known.includes(k));
+                if (unknown.length > 0) {
+                  throw new Error(`Unknown parameter${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}. Valid parameters: ${known.join(', ')}`);
+                }
+              }
               if (schema && schema.required) {
                 for (const field of schema.required) {
                   if (args[field] === undefined || args[field] === null) {
