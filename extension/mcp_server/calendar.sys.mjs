@@ -170,7 +170,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       if (isNaN(startJs.getTime())) {
         return { error: `Invalid startDate: ${startDate}` };
       }
-      const endJs = endDate ? parseDate(endDate) : new Date(startJs.getTime() + 30 * 86400000);
+      const endJs = endDate ? parseDate(endDate) : new Date(Date.now() + 7 * 86400000);
       if (isNaN(endJs.getTime())) {
         return { error: `Invalid endDate: ${endDate}` };
       }
