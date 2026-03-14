@@ -93,11 +93,11 @@ Feed items are stored as regular messages — use `searchMessages` and `getMessa
 
 ### Account identifiers
 
-All tools that accept `accountId` (including `searchMessages`, `listFolders`, `emptyTrash`, `emptyJunk`) accept any of:
+**Email addresses are the only account identifier used in the public API.** All tools that accept an account identifier (including `searchMessages`, `listFolders`, `emptyTrash`, `emptyJunk`) accept:
 
-- **Internal ID**: `account5`
-- **Email address**: `hmblair@stanford.edu`
-- **Display name**: `hmblair@stanford.edu` (the server's pretty name)
+- **Email address**: `hmblair@stanford.edu` (the only supported input format)
+
+The internal Thunderbird account ID (e.g., `account5`) is **not exposed** in any responses. All responses that previously included `accountId` now only include `accountEmail`. When specifying an account, always use the email address.
 
 ### Folder paths
 

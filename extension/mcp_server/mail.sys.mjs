@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, resolveMsgHdrs,
+    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, resolveAccountEmail, getPrimaryEmail, resolveMsgHdrs,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -20,14 +20,12 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       const identities = [];
       for (const identity of account.identities) {
         identities.push({
-          id: identity.key,
           email: identity.email,
           name: identity.fullName,
           isDefault: identity === account.defaultIdentity
         });
       }
       accounts.push({
-        id: account.key,
         name: server.prettyName,
         type: server.type,
         identities
@@ -58,11 +56,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         if (folder.flags & 0x00000020) return;
 
         const prettyName = folder.prettyName;
+        const account = MailServices.accounts.findAccountForServer(folder.server);
+        const accountEmail = account ? getPrimaryEmail(account) : null;
         results.push({
           name: prettyName || folder.name || "(unnamed)",
           path: folder.URI,
           type: folderType(folder.flags),
-          accountId: accountKey,
+          accountEmail,
           totalMessages: folder.getTotalMessages(false),
           unreadMessages: folder.getNumUnread(false),
           depth
@@ -250,6 +250,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             const thread = db.getThreadContainingMsgHdr(msgHdr);
             if (thread && thread.threadKey < 0xFFFFFFFE) threadId = thread.threadKey;
           } catch {}
+          const accountId = getAccountId(folder);
           const entry = {
             id: msgHdr.messageId,
             threadId,
@@ -260,7 +261,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
             folder: folder.prettyName,
             folderPath: folder.URI,
-            accountId: getAccountId(folder),
+            accountEmail: resolveAccountEmail(accountId),
             read: msgHdr.isRead,
             flagged: msgHdr.isFlagged,
             _dateTs: msgDateTs
@@ -451,6 +452,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             }
           }
 
+          const accountId = getAccountId(found.folder);
           const baseResponse = {
             id: msgHdr.messageId,
             subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
@@ -458,7 +460,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
             ccList: msgHdr.ccList,
             date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
-            accountId: getAccountId(found.folder),
+            accountEmail: resolveAccountEmail(accountId),
             body,
             bodyIsHtml,
             attachments
@@ -667,10 +669,11 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
       folder.deleteMessages(found, null, false, true, null, false);
 
+      const accountId = getAccountId(folder);
       const result = {
         message: `Requested deletion of ${found.length} ${found.length === 1 ? "message" : "messages"}`,
         requested: found.map(h => h.messageId),
-        accountId: getAccountId(folder),
+        accountEmail: resolveAccountEmail(accountId),
         folder: folder.URI,
       };
       if (notFound.length > 0) result.notFound = notFound;
@@ -876,7 +879,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         actions.push({ type: isCopy ? "copy" : "move", to: targetFolder.URI });
       }
 
-      const result = { message: `Requested update of ${foundHdrs.length} ${foundHdrs.length === 1 ? "message" : "messages"}`, updated: foundHdrs.length, actions, accountId: getAccountId(folder) };
+      const accountId = getAccountId(folder);
+      const result = {
+        message: `Requested update of ${foundHdrs.length} ${foundHdrs.length === 1 ? "message" : "messages"}`,
+        updated: foundHdrs.length,
+        actions,
+        accountEmail: resolveAccountEmail(accountId)
+      };
       if (notFound.length > 0) result.notFound = notFound;
       return result;
     } catch (e) {
@@ -898,7 +907,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
           return { error: "Local Folders account does not support fetching mail" };
         }
         server.getNewMessages(server.rootFolder, null, null);
-        return { message: "Fetch initiated", accountId: account.key };
+        return { message: "Fetch initiated", accountEmail: getPrimaryEmail(account) };
       }
 
       let count = 0;

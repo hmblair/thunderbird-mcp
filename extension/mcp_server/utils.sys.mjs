@@ -181,6 +181,33 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return null;
   }
 
+  function resolveAccountEmail(accountId) {
+    if (!accountId || typeof accountId !== "string") return null;
+    const lower = accountId.toLowerCase();
+    for (const account of MailServices.accounts.accounts) {
+      // Direct email match
+      for (const identity of account.identities) {
+        if ((identity.email || "").toLowerCase() === lower) {
+          return identity.email;
+        }
+      }
+      // Account ID match - return primary identity email
+      if (account.key === accountId) {
+        return account.defaultIdentity?.email || null;
+      }
+      // Display name match - return primary identity email
+      if ((account.incomingServer?.prettyName || "").toLowerCase() === lower) {
+        return account.defaultIdentity?.email || null;
+      }
+    }
+    return null;
+  }
+
+  function getPrimaryEmail(account) {
+    if (!account) return null;
+    return account.defaultIdentity?.email || null;
+  }
+
   function lookupMsgHdr(db, messageId) {
     let hdr = null;
     if (typeof db.getMsgHdrForMessageID === "function") {
@@ -258,6 +285,8 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     findSentFolder,
     getAccountId,
     resolveAccount,
+    resolveAccountEmail,
+    getPrimaryEmail,
     lookupMsgHdr,
     resolveMsgHdrs,
     findWritableCalendar,

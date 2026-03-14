@@ -10,7 +10,7 @@
  */
 
 export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, utils, FeedUtils }) {
-  const { mcpDebug, resolveFolder, resolveAccount } = utils;
+  const { mcpDebug, resolveFolder, resolveAccount, resolveAccountEmail } = utils;
 
   /**
    * Get the subscriptions database for a server and return all entries.
@@ -58,7 +58,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
     const account = FeedUtils.createRssAccount(name || undefined);
     return {
       message: "RSS account created",
-      accountId: account.key,
+      accountEmail: account.defaultIdentity?.email || null,
       name: account.incomingServer.prettyName,
       rootFolderURI: account.incomingServer.rootFolder.URI,
     };

@@ -19,7 +19,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Account ID, email address, or display name to limit results to a single account" },
+        "accountId": { "type": "string", "description": "Email address of the account. Internal account IDs are not exposed in responses." },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox') to list only that folder and its subfolders" },
         "includeLocal": { "type": "boolean", "description": "Include Local Folders account (default: false)" },
         "accountTypes": { "type": "array", "items": { "type": "string" }, "description": "Internal: filter by account type (auto-injected by bridge)" }
@@ -40,7 +40,7 @@
         "subject": { "type": "string", "description": "Filter by subject line (substring match)" },
         "hasAttachments": { "type": "boolean", "description": "Only return messages with attachments (default: false)" },
         "taggedWith": { "type": "string", "description": "Only return messages with this tag key (e.g. '$label1' for Important)" },
-        "accountId": { "type": "string", "description": "Account ID, email address, or display name to limit search to a single account. Ignored if folderPath is provided." },
+        "accountId": { "type": "string", "description": "Email address of the account to limit search to. Internal account IDs are not exposed in responses. Ignored if folderPath is provided." },
         "folderPath": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Folder URI or short path (e.g. 'account1/Inbox'), or an array of them, to limit search to specific folders and their subfolders" },
         "startDate": { "type": "string", "description": "Filter messages on or after this ISO 8601 date" },
         "endDate": { "type": "string", "description": "Filter messages on or before this ISO 8601 date" },
@@ -267,7 +267,7 @@
       "type": "object",
       "properties": {
         "from": { "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "string" } }], "description": "Sender name or email substring to match (or array of them). All messages matching any of these senders will be deleted." },
-        "accountId": { "type": "string", "description": "Account ID, email address, or display name to limit deletion to a single account (optional, defaults to all accounts)" },
+        "accountId": { "type": "string", "description": "Email address of the account to limit deletion to (optional, defaults to all accounts). Internal account IDs are not exposed in responses." },
         "scope": { "type": "string", "enum": ["inbox", "sent", "trash", "all"], "description": "Which folders to search: 'all' (default) searches everything, 'inbox' excludes Trash/Junk/Sent/Drafts, 'sent' searches Sent/Drafts, 'trash' searches Trash/Junk" }
       },
       "required": ["from"]
@@ -352,7 +352,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Account ID, email address, or display name to empty junk for. If omitted, empties junk for all accounts." }
+        "accountId": { "type": "string", "description": "Email address of the account to empty junk for. If omitted, empties junk for all accounts. Internal account IDs are not exposed in responses." }
       },
       "required": []
     }
@@ -364,7 +364,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Account ID, email address, or display name to empty trash for. If omitted, empties trash for all accounts." }
+        "accountId": { "type": "string", "description": "Email address of the account to empty trash for. If omitted, empties trash for all accounts. Internal account IDs are not exposed in responses." }
       },
       "required": []
     }
@@ -382,7 +382,7 @@
         "cc": { "type": "string", "description": "CC recipients (comma-separated). For reply-all, defaults to original recipients." },
         "bcc": { "type": "string", "description": "BCC recipients (comma-separated)" },
         "isHtml": { "type": "boolean", "description": "Whether body is HTML (default: false). Ignored for reply drafts." },
-        "from": { "type": "string", "description": "Sender identity (email address or identity ID from listAccounts)" },
+        "from": { "type": "string", "description": "Sender email address to use for the draft. Must match one of your configured identities." },
         "messageId": { "type": "string", "description": "Message ID to reply to (from searchMessages). Enables reply draft mode." },
         "folderPath": { "type": "string", "description": "Folder URI or short path (e.g. 'account1/Inbox') of the message to reply to (required with messageId)" },
         "replyAll": { "type": "boolean", "description": "Reply to all recipients (default: false). Only used with messageId." },
@@ -424,7 +424,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Account ID or display name to limit results to a single RSS account" },
+        "accountId": { "type": "string", "description": "Email address of the RSS account. Internal account IDs are not exposed in responses." },
         "folderPath": { "type": "string", "description": "Folder URI or short path to list feeds in a specific folder only" }
       },
       "required": []
@@ -438,7 +438,7 @@
       "type": "object",
       "properties": {
         "url": { "type": "string", "description": "The RSS/Atom feed URL to subscribe to" },
-        "accountId": { "type": "string", "description": "RSS account to subscribe in (uses first RSS account or creates one if omitted)" },
+        "accountId": { "type": "string", "description": "Email address of the RSS account (uses first RSS account or creates one if omitted). Internal account IDs are not exposed in responses." },
         "folderPath": { "type": "string", "description": "Specific folder to place the feed in (overrides accountId)" }
       },
       "required": ["url"]
@@ -464,7 +464,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "Account ID, email address, or display name. If omitted, checks all accounts." }
+        "accountId": { "type": "string", "description": "Email address of the account. If omitted, checks all accounts. Internal account IDs are not exposed in responses." }
       },
       "required": []
     }
@@ -476,7 +476,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "accountId": { "type": "string", "description": "RSS account to refresh (refreshes all accounts if omitted)" },
+        "accountId": { "type": "string", "description": "Email address of the RSS account (refreshes all accounts if omitted). Internal account IDs are not exposed in responses." },
         "folderPath": { "type": "string", "description": "Specific folder to refresh (overrides accountId)" }
       },
       "required": []

@@ -1,7 +1,7 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, mcpDebug, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccounts } = utils;
+  const { mcpWarn, mcpDebug, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccounts, resolveAccountEmail } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
@@ -34,10 +34,11 @@ export function createFolderHandlers({ MailServices, utils }) {
       } catch (e) { mcpWarn("folder creation", e);
       }
 
+      const accountId = getAccountId(parent);
       return {
         message: `Requested creation of folder "${name}"`,
         path: newPath,
-        accountId: getAccountId(parent),
+        accountEmail: resolveAccountEmail(accountId),
       };
     } catch (e) {
       const msg = e.toString();
@@ -66,10 +67,11 @@ export function createFolderHandlers({ MailServices, utils }) {
 
       folder.rename(newName, null);
 
+      const accountId = getAccountId(folder);
       return {
         message: `Requested rename of folder to "${newName}"`,
         path: folder.URI,
-        accountId: getAccountId(folder),
+        accountEmail: resolveAccountEmail(accountId),
       };
     } catch (e) {
       return { error: e.toString() };
@@ -97,14 +99,14 @@ export function createFolderHandlers({ MailServices, utils }) {
       const accountId = getAccountId(folder);
       if (permanent) {
         parent.propagateDelete(folder, true, null);
-        return { message: `Requested permanent deletion of folder`, accountId };
+        return { message: `Requested permanent deletion of folder`, accountEmail: resolveAccountEmail(accountId) };
       } else {
         const trashFolder = findTrashFolder(folder);
         if (!trashFolder) {
           return { error: "Trash folder not found" };
         }
         parent.propagateDelete(folder, false, null);
-        return { message: `Requested move of folder to Trash`, accountId };
+        return { message: `Requested move of folder to Trash`, accountEmail: resolveAccountEmail(accountId) };
       }
     } catch (e) {
       return { error: e.toString() };
@@ -134,9 +136,10 @@ export function createFolderHandlers({ MailServices, utils }) {
 
       MailServices.copy.copyFolder(folder, destParent, true, null, null);
 
+      const accountId = getAccountId(folder);
       return {
         message: `Requested move of folder to "${destParent.prettyName || destParent.name || destinationParentPath}"`,
-        accountId: getAccountId(folder),
+        accountEmail: resolveAccountEmail(accountId),
       };
     } catch (e) {
       return { error: e.toString() };
@@ -158,7 +161,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         if (trash) {
           const messageCount = trash.getTotalMessages(false);
           trash.emptyTrash(null);
-          results.push({ accountId: account.key, folder: trash.URI, messagesDeleted: messageCount });
+          results.push({ accountEmail: account.defaultIdentity?.email || null, folder: trash.URI, messagesDeleted: messageCount });
         }
       }
 
@@ -192,7 +195,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         if (msgs.length > 0) {
           junk.deleteMessages(msgs, null, true, false, null, false);
         }
-        results.push({ accountId: account.key, folder: junk.URI, messagesDeleted: msgs.length });
+        results.push({ accountEmail: account.defaultIdentity?.email || null, folder: junk.URI, messagesDeleted: msgs.length });
       }
 
       if (results.length === 0) {

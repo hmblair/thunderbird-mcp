@@ -3,7 +3,7 @@
 export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUtils, utils }) {
   const {
     mcpWarn, mcpDebug, findMessage, formatLocalJsDate,
-    findIdentity, findDraftsFolder, findSentFolder, getAccountId,
+    findIdentity, findDraftsFolder, findSentFolder, getAccountId, resolveAccountEmail,
   } = utils;
 
   function buildMimeMessage({ to, subject, body, cc, bcc, isHtml, from, inReplyTo, references, attachments }) {
@@ -279,7 +279,12 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                 if (attResult.failed.length > 0) {
                   msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
                 }
-                resolve({ message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder) });
+                const accountId = getAccountId(draftsFolder);
+                resolve({ 
+                  message: msg, 
+                  draftsFolder: draftsFolder.URI, 
+                  accountEmail: resolveAccountEmail(accountId)
+                });
 
               } else {
                 // --- Reply mode ---
@@ -331,7 +336,12 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                 if (attResult.failed.length > 0) {
                   msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
                 }
-                resolve({ message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder) });
+                const accountId = getAccountId(draftsFolder);
+                resolve({ 
+                  message: msg, 
+                  draftsFolder: draftsFolder.URI, 
+                  accountEmail: resolveAccountEmail(accountId)
+                });
               }
             } catch (e) {
               resolve({ error: e.toString() });
@@ -364,7 +374,12 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
       if (attResult.failed.length > 0) {
         msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
       }
-      return { message: msg, draftsFolder: draftsFolder.URI, accountId: getAccountId(draftsFolder) };
+      const accountId = getAccountId(draftsFolder);
+      return { 
+        message: msg, 
+        draftsFolder: draftsFolder.URI, 
+        accountEmail: resolveAccountEmail(accountId)
+      };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -475,9 +490,10 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                     try {
                       folder.deleteMessages([msgHdr], null, true, true, null, false);
                     } catch (e) { mcpWarn("draft cleanup", e); }
+                    const accountId = account ? account.key : null;
                     resolve({
                       message: "Message sent",
-                      accountId: account ? account.key : null,
+                      accountEmail: accountId ? resolveAccountEmail(accountId) : null,
                     });
                   } else {
                     resolve({ error: `Send failed with status: ${status}` });
