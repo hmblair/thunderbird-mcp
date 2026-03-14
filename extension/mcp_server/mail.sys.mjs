@@ -331,6 +331,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         }
         const { msgHdr } = found;
 
+        // Mark the message as read
+        msgHdr.folder.markMessagesRead([msgHdr], true);
+
         const { MsgHdrToMimeMessage } = ChromeUtils.importESModule(
           "resource:///modules/gloda/MimeMessage.sys.mjs"
         );
