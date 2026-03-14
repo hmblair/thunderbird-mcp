@@ -388,11 +388,60 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
     }
   }
 
+  async function moveEvent(args) {
+    const { eventId, calendarId, destinationCalendarId } = args;
+    mcpDebug("moveEvent", { eventId, calendarId, destinationCalendarId });
+    if (!cal) {
+      return { error: "Calendar not available" };
+    }
+    try {
+      if (!eventId || !calendarId || !destinationCalendarId) {
+        return { error: "eventId, calendarId, and destinationCalendarId are all required" };
+      }
+      if (calendarId === destinationCalendarId) {
+        return { error: "Source and destination calendars are the same" };
+      }
+
+      const found = await findEvent(eventId, calendarId);
+      if (found.error) return found;
+      const { item, calendar: srcCalendar } = found;
+
+      if (srcCalendar.readOnly) {
+        return { error: `Source calendar is read-only: ${srcCalendar.name}` };
+      }
+
+      const destCalendar = cal.manager.getCalendars().find(c => c.id === destinationCalendarId);
+      if (!destCalendar) {
+        return { error: `Destination calendar not found: ${destinationCalendarId}` };
+      }
+      if (destCalendar.readOnly) {
+        return { error: `Destination calendar is read-only: ${destCalendar.name}` };
+      }
+
+      const newItem = item.clone();
+      newItem.calendar = destCalendar;
+      await destCalendar.addItem(newItem);
+      await srcCalendar.deleteItem(item);
+
+      return {
+        message: `Moved event "${item.title}" from "${srcCalendar.name}" to "${destCalendar.name}"`,
+        eventId,
+        fromCalendarId: srcCalendar.id,
+        fromCalendarName: srcCalendar.name,
+        toCalendarId: destCalendar.id,
+        toCalendarName: destCalendar.name,
+      };
+    } catch (e) {
+      return { error: e.toString() };
+    }
+  }
+
   return {
     listCalendars: () => listCalendars(),
     listEvents,
     createEvent,
     updateEvent,
     deleteEvent,
+    moveEvent,
   };
 }

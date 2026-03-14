@@ -143,6 +143,20 @@
     }
   },
   {
+    "name": "moveEvent",
+    "title": "Move Event",
+    "description": "Move a calendar event from one calendar to another",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "description": "The event ID (from listEvents results)" },
+        "calendarId": { "type": "string", "description": "The calendar ID currently containing the event (from listEvents results)" },
+        "destinationCalendarId": { "type": "string", "description": "The calendar ID to move the event to (from listCalendars)" }
+      },
+      "required": ["eventId", "calendarId", "destinationCalendarId"]
+    }
+  },
+  {
     "name": "listTasks",
     "title": "List Tasks",
     "description": "List tasks (todos) from calendars, optionally filtered by date range and completion status",
@@ -204,6 +218,20 @@
         "calendarId": { "type": "string", "description": "The calendar ID containing the task (from listTasks results)" }
       },
       "required": ["taskId", "calendarId"]
+    }
+  },
+  {
+    "name": "moveTask",
+    "title": "Move Task",
+    "description": "Move a task (todo) from one calendar to another",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string", "description": "The task ID (from listTasks results)" },
+        "calendarId": { "type": "string", "description": "The calendar ID currently containing the task (from listTasks results)" },
+        "destinationCalendarId": { "type": "string", "description": "The calendar ID to move the task to (from listCalendars)" }
+      },
+      "required": ["taskId", "calendarId", "destinationCalendarId"]
     }
   },
   {

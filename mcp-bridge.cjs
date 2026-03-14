@@ -29,8 +29,8 @@ const TOOL_GROUPS = {
     'emptyJunk', 'emptyTrash',
   ],
   calendar: [
-    'listCalendars', 'createEvent', 'listEvents', 'updateEvent', 'deleteEvent',
-    'listTasks', 'createTask', 'updateTask', 'deleteTask',
+    'listCalendars', 'createEvent', 'listEvents', 'updateEvent', 'deleteEvent', 'moveEvent',
+    'listTasks', 'createTask', 'updateTask', 'deleteTask', 'moveTask',
   ],
   feeds: [
     'listAccounts', 'createFeedAccount', 'listFeeds',
