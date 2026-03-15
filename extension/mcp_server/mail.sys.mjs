@@ -21,8 +21,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       for (const identity of account.identities) {
         identities.push({
           email: identity.email,
-          name: identity.fullName,
-          isDefault: identity === account.defaultIdentity
+          name: identity.fullName
         });
       }
       accounts.push({
