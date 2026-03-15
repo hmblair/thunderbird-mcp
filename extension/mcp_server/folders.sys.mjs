@@ -1,7 +1,7 @@
 // folders.sys.mjs — Folder tools: create, rename, delete, move
 
 export function createFolderHandlers({ MailServices, utils }) {
-  const { mcpWarn, mcpDebug, resolveFolder, findTrashFolder, findJunkFolder, getAccountId, resolveAccounts, resolveAccountEmail } = utils;
+  const { mcpWarn, mcpDebug, resolveFolder, findTrashFolder, findJunkFolder, resolveAccounts, folderShortPath, getPrimaryEmail } = utils;
 
   function createFolder(args) {
     const { parentFolderPath, name } = args;
@@ -21,12 +21,12 @@ export function createFolderHandlers({ MailServices, utils }) {
 
       parent.createSubfolder(name, null);
 
-      let newPath = null;
+      let newFolder = null;
       try {
         if (parent.hasSubFolders) {
           for (const sub of parent.subFolders) {
             if (sub.prettyName === name || sub.name === name) {
-              newPath = sub.URI;
+              newFolder = sub;
               break;
             }
           }
@@ -34,11 +34,9 @@ export function createFolderHandlers({ MailServices, utils }) {
       } catch (e) { mcpWarn("folder creation", e);
       }
 
-      const accountId = getAccountId(parent);
       return {
         message: `Requested creation of folder "${name}"`,
-        path: newPath,
-        accountEmail: resolveAccountEmail(accountId),
+        path: newFolder ? folderShortPath(newFolder) : null,
       };
     } catch (e) {
       const msg = e.toString();
@@ -67,11 +65,9 @@ export function createFolderHandlers({ MailServices, utils }) {
 
       folder.rename(newName, null);
 
-      const accountId = getAccountId(folder);
       return {
         message: `Requested rename of folder to "${newName}"`,
-        path: folder.URI,
-        accountEmail: resolveAccountEmail(accountId),
+        path: folderShortPath(folder),
       };
     } catch (e) {
       return { error: e.toString() };
@@ -96,17 +92,16 @@ export function createFolderHandlers({ MailServices, utils }) {
         return { error: "Cannot delete a root folder" };
       }
 
-      const accountId = getAccountId(folder);
       if (permanent) {
         parent.propagateDelete(folder, true, null);
-        return { message: `Requested permanent deletion of folder`, accountEmail: resolveAccountEmail(accountId) };
+        return { message: `Requested permanent deletion of folder` };
       } else {
         const trashFolder = findTrashFolder(folder);
         if (!trashFolder) {
           return { error: "Trash folder not found" };
         }
         parent.propagateDelete(folder, false, null);
-        return { message: `Requested move of folder to Trash`, accountEmail: resolveAccountEmail(accountId) };
+        return { message: `Requested move of folder to Trash` };
       }
     } catch (e) {
       return { error: e.toString() };
@@ -136,10 +131,8 @@ export function createFolderHandlers({ MailServices, utils }) {
 
       MailServices.copy.copyFolder(folder, destParent, true, null, null);
 
-      const accountId = getAccountId(folder);
       return {
         message: `Requested move of folder to "${destParent.prettyName || destParent.name || destinationParentPath}"`,
-        accountEmail: resolveAccountEmail(accountId),
       };
     } catch (e) {
       return { error: e.toString() };
@@ -161,7 +154,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         if (trash) {
           const messageCount = trash.getTotalMessages(false);
           trash.emptyTrash(null);
-          results.push({ accountEmail: account.defaultIdentity?.email || null, folder: trash.URI, messagesDeleted: messageCount });
+          results.push({ accountEmail: getPrimaryEmail(account), folder: folderShortPath(trash), messagesDeleted: messageCount });
         }
       }
 
@@ -195,7 +188,7 @@ export function createFolderHandlers({ MailServices, utils }) {
         if (msgs.length > 0) {
           junk.deleteMessages(msgs, null, true, false, null, false);
         }
-        results.push({ accountEmail: account.defaultIdentity?.email || null, folder: junk.URI, messagesDeleted: msgs.length });
+        results.push({ accountEmail: getPrimaryEmail(account), folder: folderShortPath(junk), messagesDeleted: msgs.length });
       }
 
       if (results.length === 0) {

@@ -208,6 +208,24 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return account.defaultIdentity?.email || null;
   }
 
+  function folderShortPath(folder) {
+    if (!folder) return null;
+    const segments = [];
+    let current = folder;
+    while (current && current.parent) {
+      segments.unshift(current.prettyName || current.name);
+      current = current.parent;
+    }
+    let prefix = "Local Folders";
+    try {
+      const account = MailServices.accounts.findAccountForServer(folder.server);
+      if (account) {
+        prefix = getPrimaryEmail(account) || account.incomingServer?.prettyName || "Local Folders";
+      }
+    } catch {}
+    return prefix + "/" + segments.join("/");
+  }
+
   function lookupMsgHdr(db, messageId) {
     let hdr = null;
     if (typeof db.getMsgHdrForMessageID === "function") {
@@ -287,6 +305,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     resolveAccount,
     resolveAccountEmail,
     getPrimaryEmail,
+    folderShortPath,
     lookupMsgHdr,
     resolveMsgHdrs,
     findWritableCalendar,

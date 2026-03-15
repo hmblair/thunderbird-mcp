@@ -3,7 +3,7 @@
 export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUtils, utils }) {
   const {
     mcpWarn, mcpDebug, findMessage, formatLocalJsDate,
-    findIdentity, findDraftsFolder, findSentFolder, getAccountId, resolveAccountEmail,
+    findIdentity, findDraftsFolder, findSentFolder, folderShortPath,
   } = utils;
 
   function buildMimeMessage({ to, subject, body, cc, bcc, isHtml, from, inReplyTo, references, attachments }) {
@@ -279,11 +279,9 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                 if (attResult.failed.length > 0) {
                   msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
                 }
-                const accountId = getAccountId(draftsFolder);
-                resolve({ 
-                  message: msg, 
-                  draftsFolder: draftsFolder.URI, 
-                  accountEmail: resolveAccountEmail(accountId)
+                resolve({
+                  message: msg,
+                  draftsFolder: folderShortPath(draftsFolder),
                 });
 
               } else {
@@ -336,11 +334,9 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                 if (attResult.failed.length > 0) {
                   msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
                 }
-                const accountId = getAccountId(draftsFolder);
-                resolve({ 
-                  message: msg, 
-                  draftsFolder: draftsFolder.URI, 
-                  accountEmail: resolveAccountEmail(accountId)
+                resolve({
+                  message: msg,
+                  draftsFolder: folderShortPath(draftsFolder),
                 });
               }
             } catch (e) {
@@ -374,11 +370,9 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
       if (attResult.failed.length > 0) {
         msg += ` (failed to attach: ${attResult.failed.join(", ")})`;
       }
-      const accountId = getAccountId(draftsFolder);
-      return { 
-        message: msg, 
-        draftsFolder: draftsFolder.URI, 
-        accountEmail: resolveAccountEmail(accountId)
+      return {
+        message: msg,
+        draftsFolder: folderShortPath(draftsFolder),
       };
     } catch (e) {
       return { error: e.toString() };
@@ -490,10 +484,8 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                     try {
                       folder.deleteMessages([msgHdr], null, true, true, null, false);
                     } catch (e) { mcpWarn("draft cleanup", e); }
-                    const accountId = account ? account.key : null;
                     resolve({
                       message: "Message sent",
-                      accountEmail: accountId ? resolveAccountEmail(accountId) : null,
                     });
                   } else {
                     resolve({ error: `Send failed with status: ${status}` });

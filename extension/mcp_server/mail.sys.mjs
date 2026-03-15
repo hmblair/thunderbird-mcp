@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, getAccountId, resolveAccount, resolveAccountEmail, getPrimaryEmail, resolveMsgHdrs,
+    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, resolveAccount, getPrimaryEmail, folderShortPath, resolveMsgHdrs,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -55,13 +55,10 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         if (folder.flags & 0x00000020) return;
 
         const prettyName = folder.prettyName;
-        const account = MailServices.accounts.findAccountForServer(folder.server);
-        const accountEmail = account ? getPrimaryEmail(account) : null;
         results.push({
           name: prettyName || folder.name || "(unnamed)",
-          path: folder.URI,
+          path: folderShortPath(folder),
           type: folderType(folder.flags),
-          accountEmail,
           totalMessages: folder.getTotalMessages(false),
           unreadMessages: folder.getNumUnread(false),
           depth
@@ -249,7 +246,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             const thread = db.getThreadContainingMsgHdr(msgHdr);
             if (thread && thread.threadKey < 0xFFFFFFFE) threadId = thread.threadKey;
           } catch {}
-          const accountId = getAccountId(folder);
           const entry = {
             id: msgHdr.messageId,
             threadId,
@@ -259,8 +255,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             ccList: msgHdr.ccList,
             date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
             folder: folder.prettyName,
-            folderPath: folder.URI,
-            accountEmail: resolveAccountEmail(accountId),
+            folderPath: folderShortPath(folder),
             read: msgHdr.isRead,
             flagged: msgHdr.isFlagged,
             _dateTs: msgDateTs
@@ -451,7 +446,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             }
           }
 
-          const accountId = getAccountId(found.folder);
           const baseResponse = {
             id: msgHdr.messageId,
             subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
@@ -459,7 +453,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
             ccList: msgHdr.ccList,
             date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
-            accountEmail: resolveAccountEmail(accountId),
+            folderPath: folderShortPath(found.folder),
             body,
             bodyIsHtml,
             attachments
@@ -668,12 +662,10 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
       folder.deleteMessages(found, null, false, true, null, false);
 
-      const accountId = getAccountId(folder);
       const result = {
         message: `Requested deletion of ${found.length} ${found.length === 1 ? "message" : "messages"}`,
         requested: found.map(h => h.messageId),
-        accountEmail: resolveAccountEmail(accountId),
-        folder: folder.URI,
+        folder: folderShortPath(folder),
       };
       if (notFound.length > 0) result.notFound = notFound;
       return result;
@@ -774,7 +766,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       const deletedByFolder = [];
       for (const [folder, hdrs] of folderBatches) {
         folder.deleteMessages(hdrs, null, false, true, null, false);
-        deletedByFolder.push({ folder: folder.URI, count: hdrs.length });
+        deletedByFolder.push({ folder: folderShortPath(folder), count: hdrs.length });
       }
 
       return {
@@ -875,15 +867,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
       if (targetFolder) {
         MailServices.copy.copyMessages(folder, foundHdrs, targetFolder, !isCopy, null, null, false);
-        actions.push({ type: isCopy ? "copy" : "move", to: targetFolder.URI });
+        actions.push({ type: isCopy ? "copy" : "move", to: folderShortPath(targetFolder) });
       }
 
-      const accountId = getAccountId(folder);
       const result = {
         message: `Requested update of ${foundHdrs.length} ${foundHdrs.length === 1 ? "message" : "messages"}`,
         updated: foundHdrs.length,
         actions,
-        accountEmail: resolveAccountEmail(accountId)
       };
       if (notFound.length > 0) result.notFound = notFound;
       return result;

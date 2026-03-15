@@ -10,7 +10,7 @@
  */
 
 export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, utils, FeedUtils }) {
-  const { mcpDebug, resolveFolder, resolveAccount, resolveAccountEmail } = utils;
+  const { mcpDebug, resolveFolder, resolveAccount, folderShortPath } = utils;
 
   /**
    * Get the subscriptions database for a server and return all entries.
@@ -40,11 +40,14 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
   function collectFeeds(rootFolder) {
     const server = rootFolder.server;
     const subs = getSubscriptions(server);
-    return subs.map(sub => ({
-      url: sub.url,
-      title: sub.title || null,
-      destFolder: sub.destFolder,
-    }));
+    return subs.map(sub => {
+      const folder = sub.destFolder ? resolveFolder(sub.destFolder) : null;
+      return {
+        url: sub.url,
+        title: sub.title || null,
+        destFolder: folder ? folderShortPath(folder) : sub.destFolder,
+      };
+    });
   }
 
   // ── Handlers ──────────────────────────────────────────────────────
@@ -58,9 +61,8 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
     const account = FeedUtils.createRssAccount(name || undefined);
     return {
       message: "RSS account created",
-      accountEmail: account.defaultIdentity?.email || null,
       name: account.incomingServer.prettyName,
-      rootFolderURI: account.incomingServer.rootFolder.URI,
+      rootFolder: folderShortPath(account.incomingServer.rootFolder) || account.incomingServer.rootFolder.URI,
     };
   }
 
@@ -83,7 +85,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
       if (!urls) {
         return [];
       }
-      return urls.map(url => ({ url, destFolder: folder.URI }));
+      return urls.map(url => ({ url, destFolder: folderShortPath(folder) }));
     }
 
     // Otherwise list all feeds across matching RSS accounts
@@ -229,7 +231,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
     return {
       message: "Feed unsubscribed",
       url,
-      folder: targetSub.destFolder,
+      folder: destFolder ? folderShortPath(destFolder) : targetSub.destFolder,
     };
   }
 
@@ -269,7 +271,7 @@ export function createFeedHandlers({ MailServices, Services, Ci, ChromeUtils, ut
     FeedUtils.downloadFeed(folder, null, false, null);
     return {
       message: "Feed refresh initiated",
-      folder: folder.URI,
+      folder: folderShortPath(folder),
     };
   }
 

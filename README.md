@@ -101,19 +101,18 @@ The internal Thunderbird account ID (e.g., `account5`) is **not exposed** in any
 
 ### Folder paths
 
-All tools that accept a `folderPath` (or `parentFolderPath`, `moveTo`, `copyTo`, `destinationParentPath`) support two formats:
+All tools that accept a `folderPath` (or `parentFolderPath`, `moveTo`, `copyTo`, `destinationParentPath`) use the format:
 
-- **Full URI**: `ews://hmblair%40stanford.edu@outlook.office365.com/Inbox`
-- **Short path**: `account5/Inbox`, `hmblair@stanford.edu/Sent Items`
+- **`email/FolderName/Subfolder`**: e.g. `hmblair@stanford.edu/Inbox`, `user@gmail.com/[Gmail]/All Mail`
 
-Short paths use the format `account/FolderName/Subfolder`, where `account` can be an ID, email, or display name. Folder names are matched case-insensitively. Use `listAccounts` to find accounts and `listFolders` to see folder names.
+Folder names are matched case-insensitively. Use `listAccounts` to find accounts and `listFolders` to see folder paths. All responses return paths in this same format, so you can pass them back directly as input.
 
 ### Mutation responses
 
 Thunderbird's mail APIs are fire-and-forget — they do not return success or failure signals. All mutation tools reflect this honestly:
 
 - Responses say `"Requested ..."` rather than claiming success
-- Each response includes context: `accountId` for mail operations, `calendarId`/`calendarName` for calendar/task operations
+- Each response includes context: folder paths for mail operations, `calendarId`/`calendarName` for calendar/task operations
 - To confirm an operation took effect, query the relevant data after the mutation (e.g. search for the message after moving it)
 
 ---
