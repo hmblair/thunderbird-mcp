@@ -1,0 +1,3 @@
+#compdef thunderbird-headless
+
+_arguments '1:command:(start stop status)'

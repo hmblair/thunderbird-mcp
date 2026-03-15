@@ -149,6 +149,28 @@ To remove the config entries later:
 make uninstall
 ```
 
+### 3. Headless mode (optional)
+
+Run Thunderbird on a virtual display (Xvfb) so MCP agents can access mail and calendar when no graphical session is active. Requires Xvfb running on display `:99`.
+
+```bash
+make install-headless
+```
+
+This installs a systemd user service, the `thunderbird-headless` command, and zsh completions. The service auto-restarts on failure and persists after logout via `loginctl enable-linger`.
+
+```bash
+thunderbird-headless start    # Start the service
+thunderbird-headless stop     # Stop the service
+thunderbird-headless status   # Show service status
+```
+
+To remove:
+
+```bash
+make uninstall-headless
+```
+
 ---
 
 ## Security
@@ -211,6 +233,10 @@ thunderbird-mcp/
 │       ├── feeds.sys.mjs       # RSS/Atom feed tools
 │       ├── tools.json          # Tool definitions and schemas
 │       └── schema.json
+├── headless/
+│   ├── thunderbird-headless        # Start/stop/status command
+│   ├── thunderbird-mcp.service     # Systemd user service (Xvfb :99)
+│   └── _thunderbird-headless       # Zsh completions
 └── Makefile
 ```
 

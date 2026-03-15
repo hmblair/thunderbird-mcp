@@ -1,0 +1,55 @@
+#!/bin/bash
+# Manage headless Thunderbird systemd service
+
+SERVICE=thunderbird-mcp
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+GREY='\033[0;90m'
+NC='\033[0m'
+
+status() {
+    local pid
+    pid=$(pgrep -x thunderbird-bin | head -1)
+    if [ -n "$pid" ]; then
+        local display
+        display=$(tr '\0' '\n' < /proc/"$pid"/environ 2>/dev/null | grep '^DISPLAY=' | cut -d= -f2)
+        if [ "$display" = ":99" ]; then
+            echo -e "Thunderbird: ${GREEN}running${NC} ${GREY}(headless)${NC}"
+        else
+            echo -e "Thunderbird: ${GREEN}running${NC} ${GREY}(GUI on $display)${NC}"
+        fi
+    else
+        echo -e "Thunderbird: ${RED}not running${NC}"
+    fi
+
+    if systemctl --user is-active --quiet "$SERVICE"; then
+        echo -e "Service:     ${GREEN}active${NC}"
+    else
+        echo -e "Service:     ${RED}inactive${NC}"
+    fi
+}
+
+case "${1:-status}" in
+    start)
+        if systemctl --user is-active --quiet "$SERVICE"; then
+            echo -e "${YELLOW}Service is already running.${NC}"
+        else
+            systemctl --user start "$SERVICE" && echo -e "${GREEN}Started.${NC}"
+        fi
+        ;;
+    stop)
+        if ! systemctl --user is-active --quiet "$SERVICE"; then
+            echo -e "${YELLOW}Service is not running.${NC}"
+        else
+            systemctl --user stop "$SERVICE" && echo -e "${GREEN}Stopped.${NC}"
+        fi
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|status}"
+        exit 1
+        ;;
+esac
