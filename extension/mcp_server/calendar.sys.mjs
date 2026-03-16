@@ -50,6 +50,9 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
   async function createEvent(args) {
     const { title, startDate, endDate, location, description, calendarId, allDay, recurrence } = args;
     mcpDebug("createEvent", { title, startDate, endDate, calendarId, allDay });
+    if (!calendarId) {
+      return { error: "calendarId is required. Use listCalendars to find available calendar IDs." };
+    }
     if (!cal || !CalEvent) {
       return { error: "Calendar module not available" };
     }

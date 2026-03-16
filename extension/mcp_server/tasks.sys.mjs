@@ -111,6 +111,9 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
   async function createTask(args) {
     const { title, dueDate, description, calendarId, priority } = args;
     mcpDebug("createTask", { title, calendarId, dueDate });
+    if (!calendarId) {
+      return { error: "calendarId is required. Use listCalendars to find available calendar IDs." };
+    }
     if (!cal || !CalTodo) {
       return { error: "Calendar module not available" };
     }

@@ -88,11 +88,11 @@
         "endDate": { "type": "string", "description": "End date/time in ISO 8601 (defaults to startDate + 1h for timed, +1 day for all-day)" },
         "location": { "type": "string", "description": "Event location" },
         "description": { "type": "string", "description": "Event description" },
-        "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars, defaults to first writable calendar)" },
+        "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars)" },
         "allDay": { "type": "boolean", "description": "Create an all-day event (default: false)" },
         "recurrence": { "type": "string", "description": "iCal RRULE string for repeating events (e.g. 'FREQ=WEEKLY;BYDAY=MO,WE,FR' or 'FREQ=MONTHLY;BYMONTHDAY=15')" }
       },
-      "required": ["title", "startDate"]
+      "required": ["title", "startDate", "calendarId"]
     }
   },
   {
@@ -182,10 +182,10 @@
         "title": { "type": "string", "description": "Task title" },
         "dueDate": { "type": "string", "description": "Due date/time in ISO 8601 format (optional)" },
         "description": { "type": "string", "description": "Task description (optional)" },
-        "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars, defaults to first writable calendar)" },
+        "calendarId": { "type": "string", "description": "Target calendar ID (from listCalendars)" },
         "priority": { "type": "number", "description": "Priority 0-9 (0=undefined, 1=highest, 5=normal, 9=lowest)" }
       },
-      "required": ["title"]
+      "required": ["title", "calendarId"]
     }
   },
   {
