@@ -184,7 +184,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       const endMs = endJs.getTime();
       const limit = Math.min(maxResults || 100, 500);
 
-      function formatItem(item, calendar) {
+      function formatItem(item, calendar, seriesParent) {
         const start = formatCalDateTime(item.startDate);
         let end = formatCalDateTime(item.endDate);
         const isAllDay = item.startDate ? item.startDate.isDate : false;
@@ -205,7 +205,8 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
           description: item.getProperty("DESCRIPTION") || "",
           allDay: isAllDay,
         };
-        const recSource = item.recurrenceInfo || (item.parentItem && item.parentItem !== item ? item.parentItem.recurrenceInfo : null);
+        const parent = seriesParent || (item.parentItem && item.parentItem !== item ? item.parentItem : null);
+        const recSource = item.recurrenceInfo || (parent ? parent.recurrenceInfo : null);
         if (recSource) {
           try {
             const rules = [];
@@ -217,6 +218,9 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
             }
             if (rules.length > 0) result.recurrence = rules.join(";");
           } catch {}
+          if (parent && parent.startDate) {
+            result.seriesStartDate = formatCalDateTime(parent.startDate);
+          }
         }
         return result;
       }
@@ -229,7 +233,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
             try {
               const occurrences = item.getOccurrencesBetween(rangeStart, rangeEnd);
               for (const occ of occurrences) {
-                results.push(formatItem(occ, calendar));
+                results.push(formatItem(occ, calendar, item));
                 if (results.length >= limit) break;
               }
             } catch (e) { mcpWarn("recurring event expansion", e);
