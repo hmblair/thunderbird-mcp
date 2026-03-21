@@ -31,6 +31,8 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 | `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
 | `getNewMail` | Check for new mail from the server — one account or all at once |
 | `deleteMessages` | Delete messages from a folder |
+| `deleteMessagesBySender` | Delete all messages from one or more senders across all folders |
+| `unsubscribe` | Unsubscribe from a mailing list via one-click POST (RFC 8058) |
 
 ### Compose
 

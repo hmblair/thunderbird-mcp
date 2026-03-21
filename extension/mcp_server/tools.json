@@ -481,5 +481,18 @@
       },
       "required": []
     }
+  },
+  {
+    "name": "unsubscribe",
+    "title": "Unsubscribe",
+    "description": "Unsubscribe from a mailing list by sending a one-click unsubscribe POST request using the message's List-Unsubscribe header (RFC 8058).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string", "description": "The message ID (from searchMessages results)" },
+        "folderPath": { "type": "string", "description": "Folder path (e.g. 'user@example.com/Inbox')" }
+      },
+      "required": ["messageId", "folderPath"]
+    }
   }
 ]

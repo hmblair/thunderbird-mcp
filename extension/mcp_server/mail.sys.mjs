@@ -918,6 +918,61 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     }
   }
 
+  function unsubscribe(args) {
+    const { messageId, folderPath } = args;
+    mcpDebug("unsubscribe", { messageId, folderPath });
+    return new Promise((resolve) => {
+      try {
+        const found = findMessage(messageId, folderPath);
+        if (found.error) { resolve({ error: found.error }); return; }
+        const { msgHdr } = found;
+
+        const { MsgHdrToMimeMessage } = ChromeUtils.importESModule(
+          "resource:///modules/gloda/MimeMessage.sys.mjs"
+        );
+
+        MsgHdrToMimeMessage(msgHdr, null, async (aMsgHdr, aMimeMsg) => {
+          if (!aMimeMsg) {
+            resolve({ error: "Could not parse message" });
+            return;
+          }
+
+          let url = null;
+          try {
+            const hdrVals = aMimeMsg.headers["list-unsubscribe"];
+            if (hdrVals && hdrVals.length > 0) {
+              const match = hdrVals[0].match(/<(https?:\/\/[^>]+)>/);
+              if (match) url = match[1];
+            }
+          } catch (e) { /* no header */ }
+
+          if (!url) {
+            resolve({ error: "No List-Unsubscribe HTTP link found in message headers" });
+            return;
+          }
+
+          try {
+            const response = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/x-www-form-urlencoded" },
+              body: "List-Unsubscribe=One-Click"
+            });
+            resolve({
+              url,
+              status: response.status,
+              success: response.ok,
+              message: response.ok ? "Unsubscribe request sent" : `Server returned ${response.status}`
+            });
+          } catch (e) {
+            resolve({ error: `HTTP request failed: ${e}`, url });
+          }
+        });
+      } catch (e) {
+        resolve({ error: e.toString() });
+      }
+    });
+  }
+
   return {
     listAccounts,
     listFolders,
@@ -927,5 +982,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     deleteMessagesBySender,
     updateMessages,
     getNewMail,
+    unsubscribe,
   };
 }
