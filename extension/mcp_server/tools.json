@@ -63,7 +63,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "messageId": { "type": "string", "description": "The message ID (from searchMessages results)" },
+        "messageId": { "type": "string", "description": "The message ID (short hex ID from searchMessages results)" },
         "folderPath": { "type": "string", "description": "Folder path (e.g. 'user@example.com/Inbox')" },
         "saveAttachments": { "type": "boolean", "description": "If true, save attachments to /tmp/thunderbird-mcp/<messageId>/ and include filePath in response (default: false)" }
       },
@@ -489,7 +489,7 @@
     "inputSchema": {
       "type": "object",
       "properties": {
-        "messageId": { "type": "string", "description": "The message ID (from searchMessages results)" },
+        "messageId": { "type": "string", "description": "The message ID (short hex ID from searchMessages results)" },
         "folderPath": { "type": "string", "description": "Folder path (e.g. 'user@example.com/Inbox')" }
       },
       "required": ["messageId", "folderPath"]

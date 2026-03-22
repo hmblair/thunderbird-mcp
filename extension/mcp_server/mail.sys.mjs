@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, resolveAccount, getPrimaryEmail, folderShortPath, resolveMsgHdrs,
+    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, resolveAccount, getPrimaryEmail, folderShortPath, shortId, resolveMsgHdrs,
   } = utils;
 
   const DEFAULT_MAX_RESULTS = 50;
@@ -247,7 +247,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             if (thread && thread.threadKey < 0xFFFFFFFE) threadId = thread.threadKey;
           } catch {}
           const entry = {
-            id: msgHdr.messageId,
+            id: shortId(msgHdr.messageId),
             threadId,
             subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
             author: msgHdr.mime2DecodedAuthor || msgHdr.author,
@@ -447,7 +447,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
           }
 
           const baseResponse = {
-            id: msgHdr.messageId,
+            id: shortId(msgHdr.messageId),
             subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
             author: msgHdr.mime2DecodedAuthor || msgHdr.author,
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
@@ -664,7 +664,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
       const result = {
         message: `Requested deletion of ${found.length} ${found.length === 1 ? "message" : "messages"}`,
-        requested: found.map(h => h.messageId),
+        requested: found.map(h => shortId(h.messageId)),
         folder: folderShortPath(folder),
       };
       if (notFound.length > 0) result.notFound = notFound;

@@ -325,8 +325,9 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
                 const quoteBlock = `\n\nOn ${dateStr}, ${author} wrote:\n${quotedLines}`;
                 const fullBody = (body || "") + quoteBlock;
 
-                const inReplyTo = `<${messageId}>`;
-                const references = `<${messageId}>`;
+                const fullMsgId = msgHdr.messageId;
+                const inReplyTo = `<${fullMsgId}>`;
+                const references = `<${fullMsgId}>`;
 
                 const mime = buildMimeMessage({
                   to: replyTo, subject: replySubject, body: fullBody,

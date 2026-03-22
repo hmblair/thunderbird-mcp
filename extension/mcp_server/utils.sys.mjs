@@ -226,14 +226,66 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return prefix + "/" + segments.join("/");
   }
 
+  // ── Short message IDs ────────────────────────────────────────────
+  // Deterministic 10-hex-char hash of the RFC Message-ID, with an
+  // in-memory bidirectional cache for fast reverse lookups.
+
+  const _shortToFull = new Map();   // shortId -> full Message-ID
+  const _fullToShort = new Map();   // full Message-ID -> shortId
+
+  function shortId(fullMessageId) {
+    if (!fullMessageId) return null;
+    const cached = _fullToShort.get(fullMessageId);
+    if (cached) return cached;
+
+    const hasher = Cc["@mozilla.org/security/hash;1"].createInstance(Ci.nsICryptoHash);
+    hasher.init(hasher.SHA256);
+    const encoder = new TextEncoder();
+    const data = encoder.encode(fullMessageId);
+    hasher.update(data, data.length);
+    const rawHash = hasher.finish(false);
+    // Take first 5 bytes (10 hex chars)
+    let hex = "";
+    for (let i = 0; i < 5; i++) {
+      hex += rawHash.charCodeAt(i).toString(16).padStart(2, "0");
+    }
+
+    _shortToFull.set(hex, fullMessageId);
+    _fullToShort.set(fullMessageId, hex);
+    return hex;
+  }
+
+  // Resolve a short ID to a full Message-ID. Checks cache first,
+  // then falls back to scanning the folder DB.
+  function resolveMessageId(input, db) {
+    if (!input || typeof input !== "string") return null;
+    // If it looks like a full Message-ID (contains @ or angle brackets), use directly
+    if (input.includes("@") || input.includes("<")) return input.replace(/^<|>$/g, "");
+    // Check cache
+    const cached = _shortToFull.get(input);
+    if (cached) return cached;
+    // Cache miss — scan the DB and hash each entry to find a match
+    if (db) {
+      for (const h of db.enumerateMessages()) {
+        const sid = shortId(h.messageId);
+        if (sid === input) return h.messageId;
+      }
+    }
+    return null;
+  }
+
   function lookupMsgHdr(db, messageId) {
+    // Resolve short IDs transparently
+    const fullId = resolveMessageId(messageId, db);
+    if (!fullId) return null;
+
     let hdr = null;
     if (typeof db.getMsgHdrForMessageID === "function") {
-      try { hdr = db.getMsgHdrForMessageID(messageId); } catch { hdr = null; }
+      try { hdr = db.getMsgHdrForMessageID(fullId); } catch { hdr = null; }
     }
     if (!hdr) {
       for (const h of db.enumerateMessages()) {
-        if (h.messageId === messageId) { hdr = h; break; }
+        if (h.messageId === fullId) { hdr = h; break; }
       }
     }
     return hdr;
@@ -306,6 +358,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     resolveAccountEmail,
     getPrimaryEmail,
     folderShortPath,
+    shortId,
     lookupMsgHdr,
     resolveMsgHdrs,
     findWritableCalendar,
