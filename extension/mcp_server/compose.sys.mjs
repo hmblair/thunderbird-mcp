@@ -6,23 +6,28 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
     findIdentity, findDraftsFolder, findSentFolder, folderShortPath,
   } = utils;
 
+  // Strip CR/LF from header values to prevent MIME header injection
+  function sanitizeHeader(value) {
+    return String(value).replace(/[\r\n]+/g, ' ');
+  }
+
   function buildMimeMessage({ to, subject, body, cc, bcc, isHtml, from, inReplyTo, references, attachments }) {
     mcpDebug("buildMimeMessage", { from, to, subject });
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const hasAttachments = attachments && attachments.length > 0;
 
     const lines = [];
-    if (from) lines.push(`From: ${from}`);
-    lines.push(`To: ${to || ""}`);
-    if (cc) lines.push(`Cc: ${cc}`);
-    if (bcc) lines.push(`Bcc: ${bcc}`);
-    lines.push(`Subject: ${subject || ""}`);
+    if (from) lines.push(`From: ${sanitizeHeader(from)}`);
+    lines.push(`To: ${sanitizeHeader(to || "")}`);
+    if (cc) lines.push(`Cc: ${sanitizeHeader(cc)}`);
+    if (bcc) lines.push(`Bcc: ${sanitizeHeader(bcc)}`);
+    lines.push(`Subject: ${sanitizeHeader(subject || "")}`);
     lines.push("MIME-Version: 1.0");
     lines.push(`Date: ${new Date().toUTCString()}`);
     const msgId = `<${Date.now()}.${Math.random().toString(36).slice(2)}@thunderbird-mcp>`;
     lines.push(`Message-ID: ${msgId}`);
-    if (inReplyTo) lines.push(`In-Reply-To: ${inReplyTo}`);
-    if (references) lines.push(`References: ${references}`);
+    if (inReplyTo) lines.push(`In-Reply-To: ${sanitizeHeader(inReplyTo)}`);
+    if (references) lines.push(`References: ${sanitizeHeader(references)}`);
 
     if (hasAttachments) {
       lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`);
@@ -35,9 +40,10 @@ export function createComposeHandlers({ MailServices, Services, Cc, Ci, ChromeUt
 
       for (const att of attachments) {
         lines.push(`--${boundary}`);
-        lines.push(`Content-Type: ${att.contentType || "application/octet-stream"}; name="${att.name}"`);
+        const safeName = sanitizeHeader(att.name).replace(/"/g, '\\"');
+        lines.push(`Content-Type: ${sanitizeHeader(att.contentType || "application/octet-stream")}; name="${safeName}"`);
         lines.push("Content-Transfer-Encoding: base64");
-        lines.push(`Content-Disposition: attachment; filename="${att.name}"`);
+        lines.push(`Content-Disposition: attachment; filename="${safeName}"`);
         lines.push("");
         lines.push(att.base64Data);
       }

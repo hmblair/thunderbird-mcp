@@ -81,7 +81,9 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
             let authToken;
             try {
               console.log("[thunderbird-mcp]","Generating auth token...");
-              authToken = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+              const rng = Cc["@mozilla.org/security/random-generator;1"].getService(Ci.nsIRandomGenerator);
+              const tokenBytes = rng.generateRandomBytes(32);
+              authToken = Array.from(tokenBytes, b => b.toString(16).padStart(2, '0')).join('');
               console.log("[thunderbird-mcp]","Token generated, writing to file...");
               const tokenFilePath = Services.dirsvc.get("Home", Ci.nsIFile).path + "/.thunderbird-mcp-token";
               await IOUtils.writeUTF8(tokenFilePath, authToken);
@@ -89,7 +91,7 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               console.log("[thunderbird-mcp]","Token file written successfully");
             } catch (e) {
               console.log("[thunderbird-mcp]",`Failed to write auth token: ${e}`);
-              authToken = null;
+              throw new Error(`Cannot start without auth token: ${e}`);
             }
 
             // Load feed modules
