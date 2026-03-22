@@ -178,97 +178,99 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
     function searchFolder(folder) {
       if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) return;
-      if (!isScopeMatch(folder)) return;
+      const matchesScope = isScopeMatch(folder);
 
-      try {
-        if (folder.server && folder.server.type === "imap") {
-          try {
-            folder.updateFolder(null);
-          } catch (e) { mcpWarn("IMAP folder refresh", e);
-          }
-        }
-
-        const db = folder.msgDatabase;
-        if (!db) return;
-
-        for (const msgHdr of db.enumerateMessages()) {
-          if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
-
-          const dedupKey = msgHdr.messageId;
-          if (seenMsgs.has(dedupKey)) continue;
-          seenMsgs.add(dedupKey);
-
-          const msgDateTs = msgHdr.date || 0;
-          if (startDateTs !== null && msgDateTs < startDateTs) continue;
-          if (endDateTs !== null && msgDateTs > endDateTs) continue;
-          if (unreadOnly && msgHdr.isRead) continue;
-          if (flaggedOnly && !msgHdr.isFlagged) continue;
-
-          if (hasQuery) {
-            const subj = (msgHdr.mime2DecodedSubject || msgHdr.subject || "").toLowerCase();
-            const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
-            const recip = (msgHdr.mime2DecodedRecipients || msgHdr.recipients || "").toLowerCase();
-            const cc = (msgHdr.ccList || "").toLowerCase();
-            if (!subj.includes(lowerQuery) &&
-                !author.includes(lowerQuery) &&
-                !recip.includes(lowerQuery) &&
-                !cc.includes(lowerQuery)) continue;
-          }
-          if (lowerFrom) {
-            const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
-            if (!author.includes(lowerFrom)) continue;
-          }
-          if (lowerTo) {
-            const recip = (msgHdr.mime2DecodedRecipients || msgHdr.recipients || "").toLowerCase();
-            const cc = (msgHdr.ccList || "").toLowerCase();
-            if (!recip.includes(lowerTo) && !cc.includes(lowerTo)) continue;
-          }
-          if (lowerSubject) {
-            const subj = (msgHdr.mime2DecodedSubject || msgHdr.subject || "").toLowerCase();
-            if (!subj.includes(lowerSubject)) continue;
-          }
-          if (filterAttachments) {
-            const HAS_ATTACHMENT_FLAG = 0x10000000;
-            if (!(msgHdr.flags & HAS_ATTACHMENT_FLAG)) continue;
-          }
-          if (filterTag) {
-            const keywords = (msgHdr.getStringProperty("keywords") || "").toLowerCase();
-            if (!keywords.includes(filterTag.toLowerCase())) continue;
-          }
-
-          if (countOnly) {
-            count++;
-            continue;
-          }
-
-          let threadId = null;
-          try {
-            const thread = db.getThreadContainingMsgHdr(msgHdr);
-            if (thread && thread.threadKey < 0xFFFFFFFE) threadId = thread.threadKey;
-          } catch {}
-          const entry = {
-            id: shortId(msgHdr.messageId),
-            threadId,
-            subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
-            author: msgHdr.mime2DecodedAuthor || msgHdr.author,
-            recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
-            ccList: msgHdr.ccList,
-            date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
-            folder: folder.prettyName,
-            folderPath: folderShortPath(folder),
-            read: msgHdr.isRead,
-            flagged: msgHdr.isFlagged,
-            _dateTs: msgDateTs
-          };
-          if (snippetLen > 0) {
+      if (matchesScope) {
+        try {
+          if (folder.server && folder.server.type === "imap") {
             try {
-              const preview = msgHdr.getStringProperty("preview") || "";
-              entry.snippet = preview.substring(0, snippetLen);
-            } catch (e) { entry.snippet = ""; }
+              folder.updateFolder(null);
+            } catch (e) { mcpWarn("IMAP folder refresh", e);
+            }
           }
-          results.push(entry);
+
+          const db = folder.msgDatabase;
+          if (db) {
+            for (const msgHdr of db.enumerateMessages()) {
+              if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) break;
+
+              const dedupKey = msgHdr.messageId;
+              if (seenMsgs.has(dedupKey)) continue;
+              seenMsgs.add(dedupKey);
+
+              const msgDateTs = msgHdr.date || 0;
+              if (startDateTs !== null && msgDateTs < startDateTs) continue;
+              if (endDateTs !== null && msgDateTs > endDateTs) continue;
+              if (unreadOnly && msgHdr.isRead) continue;
+              if (flaggedOnly && !msgHdr.isFlagged) continue;
+
+              if (hasQuery) {
+                const subj = (msgHdr.mime2DecodedSubject || msgHdr.subject || "").toLowerCase();
+                const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
+                const recip = (msgHdr.mime2DecodedRecipients || msgHdr.recipients || "").toLowerCase();
+                const cc = (msgHdr.ccList || "").toLowerCase();
+                if (!subj.includes(lowerQuery) &&
+                    !author.includes(lowerQuery) &&
+                    !recip.includes(lowerQuery) &&
+                    !cc.includes(lowerQuery)) continue;
+              }
+              if (lowerFrom) {
+                const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
+                if (!author.includes(lowerFrom)) continue;
+              }
+              if (lowerTo) {
+                const recip = (msgHdr.mime2DecodedRecipients || msgHdr.recipients || "").toLowerCase();
+                const cc = (msgHdr.ccList || "").toLowerCase();
+                if (!recip.includes(lowerTo) && !cc.includes(lowerTo)) continue;
+              }
+              if (lowerSubject) {
+                const subj = (msgHdr.mime2DecodedSubject || msgHdr.subject || "").toLowerCase();
+                if (!subj.includes(lowerSubject)) continue;
+              }
+              if (filterAttachments) {
+                const HAS_ATTACHMENT_FLAG = 0x10000000;
+                if (!(msgHdr.flags & HAS_ATTACHMENT_FLAG)) continue;
+              }
+              if (filterTag) {
+                const keywords = (msgHdr.getStringProperty("keywords") || "").toLowerCase();
+                if (!keywords.includes(filterTag.toLowerCase())) continue;
+              }
+
+              if (countOnly) {
+                count++;
+                continue;
+              }
+
+              let threadId = null;
+              try {
+                const thread = db.getThreadContainingMsgHdr(msgHdr);
+                if (thread && thread.threadKey < 0xFFFFFFFE) threadId = thread.threadKey;
+              } catch {}
+              const entry = {
+                id: shortId(msgHdr.messageId),
+                threadId,
+                subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
+                author: msgHdr.mime2DecodedAuthor || msgHdr.author,
+                recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
+                ccList: msgHdr.ccList,
+                date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
+                folder: folder.prettyName,
+                folderPath: folderShortPath(folder),
+                read: msgHdr.isRead,
+                flagged: msgHdr.isFlagged,
+                _dateTs: msgDateTs
+              };
+              if (snippetLen > 0) {
+                try {
+                  const preview = msgHdr.getStringProperty("preview") || "";
+                  entry.snippet = preview.substring(0, snippetLen);
+                } catch (e) { entry.snippet = ""; }
+              }
+              results.push(entry);
+            }
+          }
+        } catch (e) { mcpWarn("message enumeration", e);
         }
-      } catch (e) { mcpWarn("message enumeration", e);
       }
 
       if (folder.hasSubFolders) {
