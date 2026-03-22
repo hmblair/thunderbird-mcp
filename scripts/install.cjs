@@ -8,6 +8,7 @@ const bridgePath = path.resolve(__dirname, "..", "mcp-bridge.cjs");
 const home = process.env.HOME || process.env.USERPROFILE;
 
 const CLAUDE_CONFIG = path.join(home, ".mcp.json");
+const CLAUDE_DESKTOP_CONFIG = path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
 const OPENCODE_CONFIG = path.join(home, ".config", "opencode", "opencode.json");
 
 const TOOL_GROUPS = ["mail", "calendar", "feeds"];
@@ -64,6 +65,37 @@ function installOpencode() {
   console.log(`  Added ${names} to ${OPENCODE_CONFIG}`);
 }
 
+function installClaudeDesktop() {
+  const config = readJson(CLAUDE_DESKTOP_CONFIG) || {};
+  if (!config.mcpServers) config.mcpServers = {};
+  for (const group of TOOL_GROUPS) {
+    config.mcpServers[`thunderbird-${group}`] = {
+      command: "node",
+      args: [bridgePath, `--tools=${group}`],
+    };
+  }
+  writeJson(CLAUDE_DESKTOP_CONFIG, config);
+  const names = TOOL_GROUPS.map((g) => `thunderbird-${g}`).join(", ");
+  console.log(`  Added ${names} to ${CLAUDE_DESKTOP_CONFIG}`);
+}
+
+function uninstallClaudeDesktop() {
+  const config = readJson(CLAUDE_DESKTOP_CONFIG);
+  if (!config?.mcpServers) return;
+  let removed = [];
+  for (const group of TOOL_GROUPS) {
+    const key = `thunderbird-${group}`;
+    if (config.mcpServers[key]) {
+      delete config.mcpServers[key];
+      removed.push(key);
+    }
+  }
+  if (removed.length) {
+    writeJson(CLAUDE_DESKTOP_CONFIG, config);
+    console.log(`  Removed ${removed.join(", ")} from ${CLAUDE_DESKTOP_CONFIG}`);
+  }
+}
+
 function uninstallClaude() {
   const config = readJson(CLAUDE_CONFIG);
   if (!config?.mcpServers) return;
@@ -106,6 +138,14 @@ async function install() {
     console.log("  Skipped.");
   }
   console.log();
+  if (fs.existsSync(path.dirname(CLAUDE_DESKTOP_CONFIG))) {
+    if (await ask("Install into Claude Desktop? [Y/n] ")) {
+      installClaudeDesktop();
+    } else {
+      console.log("  Skipped.");
+    }
+  }
+  console.log();
   if (await ask("Install into OpenCode (~/.config/opencode/opencode.json)? [Y/n] ")) {
     installOpencode();
   } else {
@@ -118,6 +158,7 @@ async function install() {
 function uninstall() {
   console.log();
   uninstallClaude();
+  uninstallClaudeDesktop();
   uninstallOpencode();
   console.log();
 }
