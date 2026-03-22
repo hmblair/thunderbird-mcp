@@ -9,6 +9,85 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   const MAX_SEARCH_RESULTS_CAP = 1000;
   const SEARCH_COLLECTION_CAP = 1000;
 
+  // ── Gloda (cross-folder threading) ──────────────────────────────
+  let Gloda = null;
+  try {
+    ({ Gloda } = ChromeUtils.importESModule(
+      "resource:///modules/gloda/GlodaPublic.sys.mjs"
+    ));
+  } catch (e) {
+    mcpWarn("Gloda import", e);
+  }
+
+  // Look up a msgHdr's Gloda conversation. Returns a Promise resolving to
+  // { id, glodaMsg } or null if Gloda is unavailable / message not indexed.
+  function glodaLookup(msgHdr) {
+    if (!Gloda) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      try {
+        Gloda.getMessageCollectionForHeader(msgHdr, {
+          onItemsAdded() {},
+          onItemsModified() {},
+          onItemsRemoved() {},
+          onQueryCompleted(coll) {
+            const glodaMsg = coll.items[0];
+            if (!glodaMsg || !glodaMsg.conversation) {
+              resolve(null);
+              return;
+            }
+            resolve({ id: String(glodaMsg.conversation.id), glodaMsg });
+          }
+        }, null);
+      } catch (e) {
+        mcpWarn("Gloda lookup", e);
+        resolve(null);
+      }
+    });
+  }
+
+  // Return the Gloda conversation ID for a msgHdr, or null.
+  function getThreadId(msgHdr) {
+    return glodaLookup(msgHdr).then(r => r ? r.id : null);
+  }
+
+  // Use Gloda to retrieve all messages in the same conversation as msgHdr.
+  // Returns a Promise resolving to an array of summary objects, or null.
+  function getConversationMessages(msgHdr) {
+    return glodaLookup(msgHdr).then(result => {
+      if (!result) return null;
+      return new Promise((resolve) => {
+        result.glodaMsg.conversation.getMessagesCollection({
+          onItemsAdded() {},
+          onItemsModified() {},
+          onItemsRemoved() {},
+          onQueryCompleted(convColl) {
+            try {
+              const msgs = convColl.items.map(m => {
+                const hdr = m.folderMessage;
+                return {
+                  id: shortId(m.headerMessageID),
+                  subject: m.subject,
+                  author: m.from?.value || null,
+                  date: m.date ? formatLocalJsDate(new Date(m.date)) : null,
+                  folderPath: hdr ? folderShortPath(hdr.folder) : null,
+                  read: hdr ? hdr.isRead : null,
+                };
+              });
+              msgs.sort((a, b) => {
+                if (!a.date || !b.date) return 0;
+                return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+              });
+              resolve(msgs);
+            } catch (e) {
+              mcpWarn("Gloda conversation parse", e);
+              resolve(null);
+            }
+          }
+        }, null);
+      });
+    });
+  }
+
   function listAccounts(args) {
     const { includeLocal, accountTypes } = args || {};
     const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
@@ -130,13 +209,12 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   const JUNK_FOLDER_FLAG = 0x40000000;
   const DRAFTS_FOLDER_FLAG = 0x00000400;
 
-  function searchMessages(args) {
-    let { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope } = args;
+  async function searchMessages(args) {
+    let { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope, threadId } = args;
     mcpDebug("searchMessages", { query, folderPath, accountId, from, to, subject, scope });
     if (typeof folderPath === "string") folderPath = [folderPath];
     const folderPaths = Array.isArray(folderPath) && folderPath.length > 0 ? folderPath : null;
     const typeFilter = Array.isArray(accountTypes) && accountTypes.length > 0 ? new Set(accountTypes) : null;
-    const results = [];
     const lowerQuery = (query || "").toLowerCase();
     const hasQuery = !!lowerQuery;
     const lowerFrom = from ? from.toLowerCase() : null;
@@ -158,8 +236,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     const snippetLen = Number.isFinite(Number(snippetLength)) && Number(snippetLength) > 0 ? Math.floor(Number(snippetLength)) : 0;
 
     const seenMsgs = new Set();
+    let results = [];
     let count = 0;
-    const effectiveScope = folderPaths ? null : (scope || "inbox");
+    const effectiveScope = folderPaths ? null : (scope || (threadId ? "all" : "inbox"));
 
     function isScopeMatch(folder) {
       if (!effectiveScope || effectiveScope === "all") return true;
@@ -241,14 +320,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
                 continue;
               }
 
-              let threadId = null;
-              try {
-                const thread = db.getThreadContainingMsgHdr(msgHdr);
-                if (thread && thread.threadKey < 0xFFFFFFFE) threadId = thread.threadKey;
-              } catch {}
               const entry = {
                 id: shortId(msgHdr.messageId),
-                threadId,
+                threadId: null,
                 subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
                 author: msgHdr.mime2DecodedAuthor || msgHdr.author,
                 recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
@@ -258,7 +332,8 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
                 folderPath: folderShortPath(folder),
                 read: msgHdr.isRead,
                 flagged: msgHdr.isFlagged,
-                _dateTs: msgDateTs
+                _dateTs: msgDateTs,
+                _msgHdr: msgHdr,
               };
               if (snippetLen > 0) {
                 try {
@@ -308,10 +383,25 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       return { count };
     }
 
+    // Resolve Gloda conversation IDs in parallel
+    await Promise.all(results.map(async (entry) => {
+      try {
+        entry.threadId = await getThreadId(entry._msgHdr);
+      } catch (e) {
+        mcpWarn("threadId lookup", e);
+      }
+    }));
+
+    // Filter by threadId after Gloda resolution
+    if (threadId) {
+      results = results.filter(e => e.threadId === threadId);
+    }
+
     results.sort((a, b) => normalizedSortOrder === "asc" ? a._dateTs - b._dateTs : b._dateTs - a._dateTs);
 
     return results.slice(0, effectiveLimit).map(result => {
       delete result._dateTs;
+      delete result._msgHdr;
       return result;
     });
   }
@@ -335,7 +425,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
           "resource:///modules/gloda/MimeMessage.sys.mjs"
         );
 
-        MsgHdrToMimeMessage(msgHdr, null, (aMsgHdr, aMimeMsg) => {
+        MsgHdrToMimeMessage(msgHdr, null, async (aMsgHdr, aMimeMsg) => {
           if (!aMimeMsg) {
             resolve({ error: "Could not parse message" });
             return;
@@ -448,8 +538,16 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             }
           }
 
+          let resolvedThreadId = null;
+          try {
+            resolvedThreadId = await getThreadId(msgHdr);
+          } catch (e) {
+            mcpWarn("threadId lookup", e);
+          }
+
           const baseResponse = {
             id: shortId(msgHdr.messageId),
+            threadId: resolvedThreadId,
             subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
             author: msgHdr.mime2DecodedAuthor || msgHdr.author,
             recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
@@ -460,6 +558,14 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             bodyIsHtml,
             attachments
           };
+
+          // Fetch full thread via Gloda (cross-folder)
+          try {
+            const thread = await getConversationMessages(msgHdr);
+            if (thread) baseResponse.thread = thread;
+          } catch (e) {
+            mcpWarn("thread lookup", e);
+          }
 
           if (!saveAttachments || attachmentSources.length === 0) {
             resolve(baseResponse);

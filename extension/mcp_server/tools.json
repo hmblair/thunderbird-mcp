@@ -30,7 +30,7 @@
   {
     "name": "searchMessages",
     "title": "Search Mail",
-    "description": "Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them. Results include threadId for conversation grouping (null on EWS accounts). Use getMessage to read full content.",
+    "description": "Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them. Results include threadId for cross-folder conversation grouping (via Gloda). Use threadId to find all messages in a conversation across Inbox, Sent, etc. Use getMessage to read full content.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -38,6 +38,7 @@
         "from": { "type": "string", "description": "Filter by sender name or email address (substring match)" },
         "to": { "type": "string", "description": "Filter by recipient or CC name or email address (substring match)" },
         "subject": { "type": "string", "description": "Filter by subject line (substring match)" },
+        "threadId": { "type": "string", "description": "Filter by thread ID (from searchMessages or getMessage results) to get all messages in a conversation. Use with scope 'all' to find messages across Inbox, Sent, etc." },
         "hasAttachments": { "type": "boolean", "description": "Only return messages with attachments (default: false)" },
         "taggedWith": { "type": "string", "description": "Only return messages with this tag key (e.g. '$label1' for Important)" },
         "accountId": { "type": "string", "description": "Email address of the account to limit search to. Internal account IDs are not exposed in responses. Ignored if folderPath is provided." },
@@ -59,7 +60,7 @@
   {
     "name": "getMessage",
     "title": "Get Message",
-    "description": "Read the full content of an email message by its ID",
+    "description": "Read the full content of an email message by its ID. Response includes threadId and a thread array listing all messages in the conversation across folders (via Gloda), if available.",
     "inputSchema": {
       "type": "object",
       "properties": {
