@@ -222,6 +222,15 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               return NetUtil.readInputStreamToString(stream, stream.available(), { charset: "UTF-8" });
             }
 
+            // Thunderbird's httpd res.write() sends raw bytes (one byte per
+            // JS char code). JSON.stringify may contain multi-byte UTF-8
+            // chars (emojis, accented names) that would be corrupted.
+            // unescape(encodeURIComponent(s)) converts UTF-16 to a UTF-8
+            // binary string where each char is one byte.
+            function jsonToUtf8BinaryString(obj) {
+              return unescape(encodeURIComponent(JSON.stringify(obj)));
+            }
+
             const server = new HttpServer();
 
             server.registerPathHandler("/", (req, res) => {
@@ -236,15 +245,16 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                 return;
               }
 
-              if (req.method !== "POST") {
+              function sendJsonRpc(id, resultOrError) {
+                const obj = { jsonrpc: "2.0", id: id ?? null, ...resultOrError };
                 res.setStatusLine("1.1", 200, "OK");
                 res.setHeader("Content-Type", "application/json; charset=utf-8", false);
-                res.write(JSON.stringify({
-                  jsonrpc: "2.0",
-                  id: null,
-                  error: { code: -32600, message: "Invalid Request" }
-                }));
+                res.write(jsonToUtf8BinaryString(obj));
                 res.finish();
+              }
+
+              if (req.method !== "POST") {
+                sendJsonRpc(null, { error: { code: -32600, message: "Invalid Request" } });
                 return;
               }
 
@@ -252,26 +262,12 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
               try {
                 message = JSON.parse(readRequestBody(req));
               } catch {
-                res.setStatusLine("1.1", 200, "OK");
-                res.setHeader("Content-Type", "application/json; charset=utf-8", false);
-                res.write(JSON.stringify({
-                  jsonrpc: "2.0",
-                  id: null,
-                  error: { code: -32700, message: "Parse error" }
-                }));
-                res.finish();
+                sendJsonRpc(null, { error: { code: -32700, message: "Parse error" } });
                 return;
               }
 
               if (!message || typeof message !== "object" || Array.isArray(message)) {
-                res.setStatusLine("1.1", 200, "OK");
-                res.setHeader("Content-Type", "application/json; charset=utf-8", false);
-                res.write(JSON.stringify({
-                  jsonrpc: "2.0",
-                  id: null,
-                  error: { code: -32600, message: "Invalid Request" }
-                }));
-                res.finish();
+                sendJsonRpc(null, { error: { code: -32600, message: "Invalid Request" } });
                 return;
               }
 
@@ -316,30 +312,13 @@ var mcpServer = class extends ExtensionCommon.ExtensionAPI {
                       };
                       break;
                     default:
-                      res.setStatusLine("1.1", 200, "OK");
-                      res.setHeader("Content-Type", "application/json; charset=utf-8", false);
-                      res.write(JSON.stringify({
-                        jsonrpc: "2.0",
-                        id: id ?? null,
-                        error: { code: -32601, message: "Method not found" }
-                      }));
-                      res.finish();
+                      sendJsonRpc(id, { error: { code: -32601, message: "Method not found" } });
                       return;
                   }
-                  res.setStatusLine("1.1", 200, "OK");
-                  // charset=utf-8 is critical for proper emoji handling in responses
-                  res.setHeader("Content-Type", "application/json; charset=utf-8", false);
-                  res.write(JSON.stringify({ jsonrpc: "2.0", id: id ?? null, result }));
+                  sendJsonRpc(id, { result });
                 } catch (e) {
-                  res.setStatusLine("1.1", 200, "OK");
-                  res.setHeader("Content-Type", "application/json; charset=utf-8", false);
-                  res.write(JSON.stringify({
-                    jsonrpc: "2.0",
-                    id: id ?? null,
-                    error: { code: -32000, message: e.toString() }
-                  }));
+                  sendJsonRpc(id, { error: { code: -32000, message: e.toString() } });
                 }
-                res.finish();
               })();
             });
 

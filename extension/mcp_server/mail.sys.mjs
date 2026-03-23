@@ -2,7 +2,7 @@
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
-    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, resolveAccount, getPrimaryEmail, folderShortPath, shortId, resolveMsgHdrs,
+    mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, resolveAccount, getPrimaryEmail, folderShortPath, shortId, resolveMsgHdrs, isScopeMatch, FOLDER_FLAGS,
   } = utils;
 
   /**
@@ -14,9 +14,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     const results = [];
     const re = /(?:"([^"]*)"|\b([^<,]+?))?\s*<([^>]+)>/g;
     let match;
-    let lastIndex = 0;
     while ((match = re.exec(raw)) !== null) {
-      lastIndex = re.lastIndex;
       const name = (match[1] || match[2] || "").trim();
       results.push({ name, email: match[3].trim() });
     }
@@ -111,20 +109,20 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     const results = [];
 
     function folderType(flags) {
-      if (flags & 0x00001000) return "inbox";
-      if (flags & 0x00000200) return "sent";
-      if (flags & 0x00000400) return "drafts";
-      if (flags & 0x00000100) return "trash";
-      if (flags & 0x00400000) return "templates";
-      if (flags & 0x00000800) return "queue";
-      if (flags & 0x40000000) return "junk";
-      if (flags & 0x00004000) return "archive";
+      if (flags & FOLDER_FLAGS.INBOX) return "inbox";
+      if (flags & FOLDER_FLAGS.SENT) return "sent";
+      if (flags & FOLDER_FLAGS.DRAFTS) return "drafts";
+      if (flags & FOLDER_FLAGS.TRASH) return "trash";
+      if (flags & FOLDER_FLAGS.TEMPLATES) return "templates";
+      if (flags & FOLDER_FLAGS.QUEUE) return "queue";
+      if (flags & FOLDER_FLAGS.JUNK) return "junk";
+      if (flags & FOLDER_FLAGS.ARCHIVE) return "archive";
       return "folder";
     }
 
     function walkFolder(folder, accountKey, depth) {
       try {
-        if (folder.flags & 0x00000020) return;
+        if (folder.flags & FOLDER_FLAGS.VIRTUAL) return;
 
         const prettyName = folder.prettyName;
         results.push({
@@ -196,12 +194,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     return results;
   }
 
-  const INBOX_FLAG = 0x00001000;
-  const SENT_FLAG = 0x00000200;
-  const TRASH_FOLDER_FLAG = 0x00000100;
-  const JUNK_FOLDER_FLAG = 0x40000000;
-  const DRAFTS_FOLDER_FLAG = 0x00000400;
-
   async function searchMessages(args) {
     let { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope } = args;
     mcpDebug("searchMessages", { query, folderPath, accountId, from, to, subject, scope });
@@ -233,24 +225,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     let count = 0;
     const effectiveScope = folderPaths ? null : (scope || "inbox");
 
-    function isScopeMatch(folder) {
-      if (!effectiveScope || effectiveScope === "all") return true;
-      const flags = folder.flags || 0;
-      if (effectiveScope === "inbox") {
-        return !(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG | SENT_FLAG | DRAFTS_FOLDER_FLAG));
-      }
-      if (effectiveScope === "sent") {
-        return !!(flags & (SENT_FLAG | DRAFTS_FOLDER_FLAG));
-      }
-      if (effectiveScope === "trash") {
-        return !!(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG));
-      }
-      return true;
-    }
-
     function searchFolder(folder) {
       if (!countOnly && results.length >= SEARCH_COLLECTION_CAP) return;
-      const matchesScope = isScopeMatch(folder);
+      const matchesScope = isScopeMatch(folder, effectiveScope);
 
       if (matchesScope) {
         try {
@@ -300,8 +277,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
                 if (!subj.includes(lowerSubject)) continue;
               }
               if (filterAttachments) {
-                const HAS_ATTACHMENT_FLAG = 0x10000000;
-                if (!(msgHdr.flags & HAS_ATTACHMENT_FLAG)) continue;
+                if (!(msgHdr.flags & 0x10000000)) continue;
               }
               if (filterTag) {
                 const keywords = (msgHdr.getStringProperty("keywords") || "").toLowerCase();
@@ -320,7 +296,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
                 recipients: parseAddressList(msgHdr.mime2DecodedRecipients || msgHdr.recipients),
                 cc: parseAddressList(msgHdr.ccList),
                 date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
-                folder: folder.prettyName,
                 folderPath: folderShortPath(folder),
                 read: msgHdr.isRead,
                 _dateTs: msgDateTs,
@@ -504,12 +479,13 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     return attachments;
   }
 
+  const { MsgHdrToMimeMessage } = ChromeUtils.importESModule(
+    "resource:///modules/gloda/MimeMessage.sys.mjs"
+  );
+
   // Parse a single msgHdr into a full message object with body.
   // Returns a Promise resolving to the message object.
   function readFullMessage(msgHdr) {
-    const { MsgHdrToMimeMessage } = ChromeUtils.importESModule(
-      "resource:///modules/gloda/MimeMessage.sys.mjs"
-    );
     return new Promise((resolve) => {
       MsgHdrToMimeMessage(msgHdr, null, (aMsgHdr, aMimeMsg) => {
         const msg = {
@@ -626,27 +602,11 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       const effectiveScope = scope || "all";
       const targetAccountId = accountId || null;
 
-      function isScopeMatch(folder) {
-        if (effectiveScope === "all") return true;
-        const flags = folder.flags || 0;
-        if (effectiveScope === "inbox") {
-          return !(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG | SENT_FLAG | DRAFTS_FOLDER_FLAG));
-        }
-        if (effectiveScope === "sent") {
-          return !!(flags & (SENT_FLAG | DRAFTS_FOLDER_FLAG));
-        }
-        if (effectiveScope === "trash") {
-          return !!(flags & (TRASH_FOLDER_FLAG | JUNK_FOLDER_FLAG));
-        }
-        return true;
-      }
-
       const folderBatches = new Map();
       let totalFound = 0;
-      const seenMsgs = new Set();
 
       function collectFromFolder(folder) {
-        if (!isScopeMatch(folder)) return;
+        if (!isScopeMatch(folder, effectiveScope)) return;
 
         try {
           if (folder.server && folder.server.type === "imap") {
@@ -661,11 +621,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
             const author = (msgHdr.mime2DecodedAuthor || msgHdr.author || "").toLowerCase();
             if (lowerFroms.some(lf => author.includes(lf))) {
               matched.push(msgHdr);
-              const dedupKey = msgHdr.messageId;
-              if (!seenMsgs.has(dedupKey)) {
-                seenMsgs.add(dedupKey);
-                totalFound++;
-              }
             }
           }
 

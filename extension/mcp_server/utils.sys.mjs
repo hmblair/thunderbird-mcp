@@ -93,10 +93,23 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return null;
   }
 
-  const TRASH_FLAG = 0x00000100;
-  const JUNK_FLAG = 0x40000000;
-  const DRAFTS_FLAG = 0x00000400;
-  const SENT_FLAG = 0x00000200;
+  // Thunderbird folder flag constants (nsMsgFolderFlags)
+  const FOLDER_FLAGS = {
+    VIRTUAL:   0x00000020,
+    TRASH:     0x00000100,
+    SENT:      0x00000200,
+    DRAFTS:    0x00000400,
+    QUEUE:     0x00000800,
+    INBOX:     0x00001000,
+    TEMPLATES: 0x00400000,
+    ARCHIVE:   0x00004000,
+    JUNK:      0x40000000,
+  };
+
+  const TRASH_FLAG = FOLDER_FLAGS.TRASH;
+  const JUNK_FLAG = FOLDER_FLAGS.JUNK;
+  const DRAFTS_FLAG = FOLDER_FLAGS.DRAFTS;
+  const SENT_FLAG = FOLDER_FLAGS.SENT;
 
   function findTrashFolder(folder) {
     let account = null;
@@ -340,6 +353,21 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return { msgHdr, folder, db };
   }
 
+  function isScopeMatch(folder, scope) {
+    if (!scope || scope === "all") return true;
+    const flags = folder.flags || 0;
+    if (scope === "inbox") {
+      return !(flags & (FOLDER_FLAGS.TRASH | FOLDER_FLAGS.JUNK | FOLDER_FLAGS.SENT | FOLDER_FLAGS.DRAFTS));
+    }
+    if (scope === "sent") {
+      return !!(flags & (FOLDER_FLAGS.SENT | FOLDER_FLAGS.DRAFTS));
+    }
+    if (scope === "trash") {
+      return !!(flags & (FOLDER_FLAGS.TRASH | FOLDER_FLAGS.JUNK));
+    }
+    return true;
+  }
+
   return {
     mcpWarn,
     mcpDebug,
@@ -364,5 +392,7 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     findWritableCalendar,
     resolveAccounts,
     findMessage,
+    isScopeMatch,
+    FOLDER_FLAGS,
   };
 }
