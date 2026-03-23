@@ -323,7 +323,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
                 folder: folder.prettyName,
                 folderPath: folderShortPath(folder),
                 read: msgHdr.isRead,
-                flagged: msgHdr.isFlagged,
                 _dateTs: msgDateTs,
                 _msgHdr: msgHdr,
               };
