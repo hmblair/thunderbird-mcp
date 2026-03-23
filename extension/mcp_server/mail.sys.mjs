@@ -1,4 +1,4 @@
-// mail.sys.mjs — Mail tools: accounts, folders, search, getMessage, recent, delete, update
+// mail.sys.mjs — Mail tools: accounts, folders, search, getThread, delete, update
 
 export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, ChromeUtils, utils }) {
   const {
@@ -50,43 +50,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     return glodaLookup(msgHdr).then(r => r ? r.id : null);
   }
 
-  // Use Gloda to retrieve all messages in the same conversation as msgHdr.
-  // Returns a Promise resolving to an array of summary objects, or null.
-  function getConversationMessages(msgHdr) {
-    return glodaLookup(msgHdr).then(result => {
-      if (!result) return null;
-      return new Promise((resolve) => {
-        result.glodaMsg.conversation.getMessagesCollection({
-          onItemsAdded() {},
-          onItemsModified() {},
-          onItemsRemoved() {},
-          onQueryCompleted(convColl) {
-            try {
-              const msgs = convColl.items.map(m => {
-                const hdr = m.folderMessage;
-                return {
-                  id: shortId(m.headerMessageID),
-                  subject: m.subject,
-                  author: m.from?.value || null,
-                  date: m.date ? formatLocalJsDate(new Date(m.date)) : null,
-                  folderPath: hdr ? folderShortPath(hdr.folder) : null,
-                  read: hdr ? hdr.isRead : null,
-                };
-              });
-              msgs.sort((a, b) => {
-                if (!a.date || !b.date) return 0;
-                return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
-              });
-              resolve(msgs);
-            } catch (e) {
-              mcpWarn("Gloda conversation parse", e);
-              resolve(null);
-            }
-          }
-        }, null);
-      });
-    });
-  }
 
   function listAccounts(args) {
     const { includeLocal, accountTypes } = args || {};
@@ -210,7 +173,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
   const DRAFTS_FOLDER_FLAG = 0x00000400;
 
   async function searchMessages(args) {
-    let { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope, threadId } = args;
+    let { query, folderPath, accountId, startDate, endDate, maxResults, sortOrder, unreadOnly, flaggedOnly, snippetLength, countOnly, from, to, subject, hasAttachments, taggedWith, accountTypes, scope } = args;
     mcpDebug("searchMessages", { query, folderPath, accountId, from, to, subject, scope });
     if (typeof folderPath === "string") folderPath = [folderPath];
     const folderPaths = Array.isArray(folderPath) && folderPath.length > 0 ? folderPath : null;
@@ -238,7 +201,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     const seenMsgs = new Set();
     let results = [];
     let count = 0;
-    const effectiveScope = folderPaths ? null : (scope || (threadId ? "all" : "inbox"));
+    const effectiveScope = folderPaths ? null : (scope || "inbox");
 
     function isScopeMatch(folder) {
       if (!effectiveScope || effectiveScope === "all") return true;
@@ -322,7 +285,6 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
 
               const entry = {
                 id: shortId(msgHdr.messageId),
-                threadId: null,
                 subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
                 author: msgHdr.mime2DecodedAuthor || msgHdr.author,
                 recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
@@ -383,367 +345,204 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
       return { count };
     }
 
-    // Resolve Gloda conversation IDs in parallel
+    // Sort and apply limit first (same as pre-grouping behaviour)
+    results.sort((a, b) => normalizedSortOrder === "asc" ? a._dateTs - b._dateTs : b._dateTs - a._dateTs);
+    results = results.slice(0, effectiveLimit);
+
+    // Resolve Gloda conversation IDs in parallel for grouping
     await Promise.all(results.map(async (entry) => {
       try {
-        entry.threadId = await getThreadId(entry._msgHdr);
+        entry._glodaConvId = await getThreadId(entry._msgHdr);
       } catch (e) {
         mcpWarn("threadId lookup", e);
       }
     }));
 
-    // Filter by threadId after Gloda resolution
-    if (threadId) {
-      results = results.filter(e => e.threadId === threadId);
+    // Group messages by Gloda conversation ID
+    const threadMap = new Map();
+    let ungroupedCounter = 0;
+    for (const entry of results) {
+      const key = entry._glodaConvId || `_ungrouped_${ungroupedCounter++}`;
+      if (!threadMap.has(key)) threadMap.set(key, []);
+      threadMap.get(key).push(entry);
     }
 
-    results.sort((a, b) => normalizedSortOrder === "asc" ? a._dateTs - b._dateTs : b._dateTs - a._dateTs);
+    // Build grouped output: each group is { messages: [...] }
+    // Messages within each group sorted chronologically (ascending).
+    // Groups sorted by most recent message (desc) or oldest (asc).
+    const groups = [];
+    for (const entries of threadMap.values()) {
+      entries.sort((a, b) => a._dateTs - b._dateTs);
+      const latestTs = entries[entries.length - 1]._dateTs;
+      const oldestTs = entries[0]._dateTs;
+      groups.push({
+        _sortTs: normalizedSortOrder === "asc" ? oldestTs : latestTs,
+        messages: entries.map(e => {
+          delete e._dateTs;
+          delete e._msgHdr;
+          delete e._glodaConvId;
+          return e;
+        }),
+      });
+    }
 
-    return results.slice(0, effectiveLimit).map(result => {
-      delete result._dateTs;
-      delete result._msgHdr;
-      return result;
+    groups.sort((a, b) => normalizedSortOrder === "asc" ? a._sortTs - b._sortTs : b._sortTs - a._sortTs);
+
+    return groups.map(g => ({ messages: g.messages }));
+  }
+
+  // ── Body extraction helpers ────────────────────────────────────
+  function stripHtml(html) {
+    if (!html) return "";
+    let text = String(html);
+    text = text.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ");
+    text = text.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ");
+    text = text.replace(/<br\s*\/?>/gi, "\n");
+    text = text.replace(/<\/(p|div|li|tr|h[1-6]|blockquote|pre)>/gi, "\n");
+    text = text.replace(/<(p|div|li|tr|h[1-6]|blockquote|pre)\b[^>]*>/gi, "\n");
+    text = text.replace(/<[^>]+>/g, " ");
+    const NAMED_ENTITIES = {
+      nbsp: " ", amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", "#39": "'",
+    };
+    text = text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/gi, (match, entity) => {
+      if (entity.startsWith("#x") || entity.startsWith("#X")) {
+        const cp = parseInt(entity.slice(2), 16);
+        return cp ? String.fromCodePoint(cp) : match;
+      }
+      if (entity.startsWith("#")) {
+        const cp = parseInt(entity.slice(1), 10);
+        return cp ? String.fromCodePoint(cp) : match;
+      }
+      return NAMED_ENTITIES[entity.toLowerCase()] || match;
+    });
+    text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    text = text.replace(/\n{3,}/g, "\n\n");
+    text = text.replace(/[ \t\f\v]+/g, " ");
+    text = text.replace(/ *\n */g, "\n");
+    return text.trim();
+  }
+
+  function findBodyPart(part) {
+    const contentType = ((part.contentType || "").split(";")[0] || "").trim().toLowerCase();
+    if (contentType === "text/plain" && part.body) return { text: part.body, isHtml: false };
+    if (contentType === "text/html" && part.body) return { text: part.body, isHtml: true };
+    if (part.parts) {
+      let htmlFallback = null;
+      for (const sub of part.parts) {
+        const result = findBodyPart(sub);
+        if (result && !result.isHtml) return result;
+        if (result && result.isHtml && !htmlFallback) htmlFallback = result;
+      }
+      if (htmlFallback) return htmlFallback;
+    }
+    return null;
+  }
+
+  function extractBody(aMimeMsg) {
+    let body = "";
+    try {
+      body = aMimeMsg.coerceBodyToPlaintext();
+    } catch (e) {
+      mcpWarn("body extraction", e);
+    }
+    if (!body) {
+      try {
+        const found = findBodyPart(aMimeMsg);
+        if (found) {
+          body = found.isHtml ? stripHtml(found.text) : found.text;
+        } else {
+          body = "(Could not extract body text)";
+        }
+      } catch (e) {
+        mcpWarn("body extraction fallback", e);
+        body = "(Could not extract body text)";
+      }
+    }
+    return body;
+  }
+
+  function extractAttachmentInfo(aMimeMsg) {
+    const attachments = [];
+    if (aMimeMsg && aMimeMsg.allUserAttachments) {
+      for (const att of aMimeMsg.allUserAttachments) {
+        attachments.push({
+          name: att?.name || "",
+          contentType: att?.contentType || "",
+          size: typeof att?.size === "number" ? att.size : null,
+        });
+      }
+    }
+    return attachments;
+  }
+
+  // Parse a single msgHdr into a full message object with body.
+  // Returns a Promise resolving to the message object.
+  function readFullMessage(msgHdr) {
+    const { MsgHdrToMimeMessage } = ChromeUtils.importESModule(
+      "resource:///modules/gloda/MimeMessage.sys.mjs"
+    );
+    return new Promise((resolve) => {
+      MsgHdrToMimeMessage(msgHdr, null, (aMsgHdr, aMimeMsg) => {
+        const msg = {
+          id: shortId(msgHdr.messageId),
+          subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
+          author: msgHdr.mime2DecodedAuthor || msgHdr.author,
+          recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
+          ccList: msgHdr.ccList,
+          date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
+          folderPath: folderShortPath(msgHdr.folder),
+          read: msgHdr.isRead,
+          body: aMimeMsg ? extractBody(aMimeMsg) : "(Could not parse message)",
+          attachments: aMimeMsg ? extractAttachmentInfo(aMimeMsg) : [],
+        };
+        // Mark as read
+        try { msgHdr.folder.markMessagesRead([msgHdr], true); } catch {}
+        resolve(msg);
+      }, true, { examineEncryptedParts: true });
     });
   }
 
-  function getMessage(args) {
-    const { messageId, folderPath, saveAttachments } = args;
-    mcpDebug("getMessage", { messageId, folderPath });
-    return new Promise((resolve) => {
-      try {
-        const found = findMessage(messageId, folderPath);
-        if (found.error) {
-          resolve({ error: found.error });
-          return;
-        }
-        const { msgHdr } = found;
+  // ── getThread ─────────────────────────────────────────────────
+  async function getThread(args) {
+    const { messageId, folderPath } = args;
+    mcpDebug("getThread", { messageId, folderPath });
 
-        // Mark the message as read
-        msgHdr.folder.markMessagesRead([msgHdr], true);
+    if (!messageId || !folderPath) {
+      return { error: "messageId and folderPath are required" };
+    }
 
-        const { MsgHdrToMimeMessage } = ChromeUtils.importESModule(
-          "resource:///modules/gloda/MimeMessage.sys.mjs"
-        );
+    const found = findMessage(messageId, folderPath);
+    if (found.error) return { error: found.error };
+    const seedHdr = found.msgHdr;
 
-        MsgHdrToMimeMessage(msgHdr, null, async (aMsgHdr, aMimeMsg) => {
-          if (!aMimeMsg) {
-            resolve({ error: "Could not parse message" });
-            return;
-          }
+    // Try Gloda for cross-folder thread resolution
+    const glodaResult = await glodaLookup(seedHdr);
 
-          let body = "";
-          let bodyIsHtml = false;
-          try {
-            body = aMimeMsg.coerceBodyToPlaintext();
-          } catch (e) { mcpWarn("body extraction", e);
-            body = "";
-          }
-
-          if (!body) {
-            try {
-              function stripHtml(html) {
-                if (!html) return "";
-                let text = String(html);
-
-                text = text.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ");
-                text = text.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ");
-
-                text = text.replace(/<br\s*\/?>/gi, "\n");
-                text = text.replace(/<\/(p|div|li|tr|h[1-6]|blockquote|pre)>/gi, "\n");
-                text = text.replace(/<(p|div|li|tr|h[1-6]|blockquote|pre)\b[^>]*>/gi, "\n");
-
-                text = text.replace(/<[^>]+>/g, " ");
-
-                const NAMED_ENTITIES = {
-                  nbsp: " ",
-                  amp: "&",
-                  lt: "<",
-                  gt: ">",
-                  quot: "\"",
-                  apos: "'",
-                  "#39": "'",
-                };
-                text = text.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/gi, (match, entity) => {
-                  if (entity.startsWith("#x") || entity.startsWith("#X")) {
-                    const cp = parseInt(entity.slice(2), 16);
-                    return cp ? String.fromCodePoint(cp) : match;
-                  }
-                  if (entity.startsWith("#")) {
-                    const cp = parseInt(entity.slice(1), 10);
-                    return cp ? String.fromCodePoint(cp) : match;
-                  }
-                  return NAMED_ENTITIES[entity.toLowerCase()] || match;
-                });
-
-                text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-                text = text.replace(/\n{3,}/g, "\n\n");
-                text = text.replace(/[ \t\f\v]+/g, " ");
-                text = text.replace(/ *\n */g, "\n");
-                text = text.trim();
-                return text;
-              }
-
-              function findBody(part) {
-                const contentType = ((part.contentType || "").split(";")[0] || "").trim().toLowerCase();
-                if (contentType === "text/plain" && part.body) {
-                  return { text: part.body, isHtml: false };
-                }
-                if (contentType === "text/html" && part.body) {
-                  return { text: part.body, isHtml: true };
-                }
-                if (part.parts) {
-                  let htmlFallback = null;
-                  for (const sub of part.parts) {
-                    const result = findBody(sub);
-                    if (result && !result.isHtml) return result;
-                    if (result && result.isHtml && !htmlFallback) htmlFallback = result;
-                  }
-                  if (htmlFallback) return htmlFallback;
-                }
-                return null;
-              }
-              const found = findBody(aMimeMsg);
-              if (found) {
-                let extracted = found.text;
-                if (found.isHtml) {
-                  extracted = stripHtml(extracted);
-                  bodyIsHtml = false;
-                } else {
-                  bodyIsHtml = false;
-                }
-                body = extracted;
-              } else {
-                body = "(Could not extract body text)";
-              }
-            } catch (e) { mcpWarn("body extraction fallback", e);
-              body = "(Could not extract body text)";
+    if (glodaResult) {
+      const convMsgs = await new Promise((resolve) => {
+        glodaResult.glodaMsg.conversation.getMessagesCollection({
+          onItemsAdded() {},
+          onItemsModified() {},
+          onItemsRemoved() {},
+          onQueryCompleted(convColl) {
+            const hdrs = [];
+            for (const m of convColl.items) {
+              const hdr = m.folderMessage;
+              if (hdr) hdrs.push(hdr);
             }
+            resolve(hdrs);
           }
+        }, null);
+      });
 
-          const attachments = [];
-          const attachmentSources = [];
-          if (aMimeMsg && aMimeMsg.allUserAttachments) {
-            for (const att of aMimeMsg.allUserAttachments) {
-              const info = {
-                name: att?.name || "",
-                contentType: att?.contentType || "",
-                size: typeof att?.size === "number" ? att.size : null
-              };
-              attachments.push(info);
-              attachmentSources.push({
-                info,
-                url: att?.url || "",
-                size: typeof att?.size === "number" ? att.size : null
-              });
-            }
-          }
+      convMsgs.sort((a, b) => (a.date || 0) - (b.date || 0));
+      const messages = await Promise.all(convMsgs.map(hdr => readFullMessage(hdr)));
+      return { messages };
+    }
 
-          let resolvedThreadId = null;
-          try {
-            resolvedThreadId = await getThreadId(msgHdr);
-          } catch (e) {
-            mcpWarn("threadId lookup", e);
-          }
-
-          const baseResponse = {
-            id: shortId(msgHdr.messageId),
-            threadId: resolvedThreadId,
-            subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
-            author: msgHdr.mime2DecodedAuthor || msgHdr.author,
-            recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
-            ccList: msgHdr.ccList,
-            date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
-            folderPath: folderShortPath(found.folder),
-            body,
-            bodyIsHtml,
-            attachments
-          };
-
-          // Fetch full thread via Gloda (cross-folder)
-          try {
-            const thread = await getConversationMessages(msgHdr);
-            if (thread) baseResponse.thread = thread;
-          } catch (e) {
-            mcpWarn("thread lookup", e);
-          }
-
-          if (!saveAttachments || attachmentSources.length === 0) {
-            resolve(baseResponse);
-            return;
-          }
-
-          function sanitizePathSegment(s) {
-            const sanitized = String(s || "").replace(/[^a-zA-Z0-9]/g, "_");
-            return sanitized || "message";
-          }
-
-          function sanitizeFilename(s) {
-            let name = String(s || "").trim();
-            if (!name) name = "attachment";
-            name = name.replace(/[^a-zA-Z0-9._-]/g, "_");
-            name = name.replace(/^_+/, "").replace(/_+$/, "");
-            return name || "attachment";
-          }
-
-          function ensureAttachmentDir(sanitizedId) {
-            const tmpDir = Services.dirsvc.get("TmpD", Ci.nsIFile);
-            const root = tmpDir.clone();
-            root.append("thunderbird-mcp");
-            try {
-              root.create(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
-            } catch (e) {
-              if (!root.exists() || !root.isDirectory()) throw e;
-            }
-            const dir = root.clone();
-            dir.append(sanitizedId);
-            try {
-              dir.create(Ci.nsIFile.DIRECTORY_TYPE, 0o755);
-            } catch (e) {
-              if (!dir.exists() || !dir.isDirectory()) throw e;
-            }
-            return dir;
-          }
-
-          const sanitizedId = sanitizePathSegment(messageId);
-          let dir;
-          try {
-            dir = ensureAttachmentDir(sanitizedId);
-          } catch (e) {
-            for (const { info } of attachmentSources) {
-              info.error = `Failed to create attachment directory: ${e}`;
-            }
-            resolve(baseResponse);
-            return;
-          }
-
-          const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
-
-          const saveOne = ({ info, url, size }, index) =>
-            new Promise((done) => {
-              try {
-                if (!url) {
-                  info.error = "Missing attachment URL";
-                  done();
-                  return;
-                }
-
-                const knownSize = typeof size === "number" ? size : null;
-                if (knownSize !== null && knownSize > MAX_ATTACHMENT_BYTES) {
-                  info.error = `Attachment too large (${knownSize} bytes, limit ${MAX_ATTACHMENT_BYTES})`;
-                  done();
-                  return;
-                }
-
-                const idx = typeof index === "number" && Number.isFinite(index) ? index : 0;
-                let safeName = sanitizeFilename(info.name);
-                if (!safeName || safeName === "." || safeName === "..") {
-                  safeName = `attachment_${idx}`;
-                }
-                const file = dir.clone();
-                file.append(safeName);
-
-                try {
-                  file.createUnique(Ci.nsIFile.NORMAL_FILE_TYPE, 0o644);
-                } catch (e) {
-                  info.error = `Failed to create file: ${e}`;
-                  done();
-                  return;
-                }
-
-                const channel = NetUtil.newChannel({
-                  uri: url,
-                  loadUsingSystemPrincipal: true
-                });
-
-                NetUtil.asyncFetch(channel, (inputStream, status, request) => {
-                  try {
-                    if (status && status !== 0) {
-                      try { inputStream?.close(); } catch {}
-                      info.error = `Fetch failed: ${status}`;
-                      try { file.remove(false); } catch {}
-                      done();
-                      return;
-                    }
-                    if (!inputStream) {
-                      info.error = "Fetch returned no data";
-                      try { file.remove(false); } catch {}
-                      done();
-                      return;
-                    }
-
-                    try {
-                      const reqLen = request && typeof request.contentLength === "number" ? request.contentLength : -1;
-                      if (reqLen >= 0 && reqLen > MAX_ATTACHMENT_BYTES) {
-                        try { inputStream.close(); } catch {}
-                        info.error = `Attachment too large (${reqLen} bytes, limit ${MAX_ATTACHMENT_BYTES})`;
-                        try { file.remove(false); } catch {}
-                        done();
-                        return;
-                      }
-                    } catch {
-                      // ignore contentLength failures
-                    }
-
-                    const ostream = Cc["@mozilla.org/network/file-output-stream;1"]
-                      .createInstance(Ci.nsIFileOutputStream);
-                    ostream.init(file, -1, -1, 0);
-
-                    NetUtil.asyncCopy(inputStream, ostream, (copyStatus) => {
-                      try {
-                        if (copyStatus && copyStatus !== 0) {
-                          info.error = `Write failed: ${copyStatus}`;
-                          try { file.remove(false); } catch {}
-                          done();
-                          return;
-                        }
-
-                        try {
-                          if (file.fileSize > MAX_ATTACHMENT_BYTES) {
-                            info.error = `Attachment too large (${file.fileSize} bytes, limit ${MAX_ATTACHMENT_BYTES})`;
-                            try { file.remove(false); } catch {}
-                            done();
-                            return;
-                          }
-                        } catch {
-                          // ignore fileSize failures
-                        }
-
-                        info.filePath = file.path;
-                        done();
-                      } catch (e) {
-                        info.error = `Write failed: ${e}`;
-                        try { file.remove(false); } catch {}
-                        done();
-                      }
-                    });
-                  } catch (e) {
-                    info.error = `Fetch failed: ${e}`;
-                    try { file.remove(false); } catch {}
-                    done();
-                  }
-                });
-              } catch (e) {
-                info.error = String(e);
-                done();
-              }
-            });
-
-          (async () => {
-            try {
-              await Promise.all(attachmentSources.map((src, i) => saveOne(src, i)));
-            } catch (e) {
-              for (const { info } of attachmentSources) {
-                if (!info.error) info.error = `Unexpected save error: ${e}`;
-              }
-            }
-            resolve(baseResponse);
-          })();
-        }, true, { examineEncryptedParts: true });
-
-      } catch (e) {
-        resolve({ error: e.toString() });
-      }
-    });
+    // Fallback: Gloda unavailable or message not indexed — return single message
+    const msg = await readFullMessage(seedHdr);
+    return { messages: [msg] };
   }
 
   function deleteMessages(args) {
@@ -1085,7 +884,7 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     listAccounts,
     listFolders,
     searchMessages,
-    getMessage,
+    getThread,
     deleteMessages,
     deleteMessagesBySender,
     updateMessages,

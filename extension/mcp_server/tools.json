@@ -30,7 +30,7 @@
   {
     "name": "searchMessages",
     "title": "Search Mail",
-    "description": "Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them. Results include threadId for cross-folder conversation grouping (via Gloda). Use threadId to find all messages in a conversation across Inbox, Sent, etc. Use getMessage to read full content.",
+    "description": "Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them. Results are grouped by conversation thread. Use getThread with a messageId + folderPath from the results to read full message bodies.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -38,7 +38,6 @@
         "from": { "type": "string", "description": "Filter by sender name or email address (substring match)" },
         "to": { "type": "string", "description": "Filter by recipient or CC name or email address (substring match)" },
         "subject": { "type": "string", "description": "Filter by subject line (substring match)" },
-        "threadId": { "type": "string", "description": "Filter by thread ID (from searchMessages or getMessage results) to get all messages in a conversation. Use with scope 'all' to find messages across Inbox, Sent, etc." },
         "hasAttachments": { "type": "boolean", "description": "Only return messages with attachments (default: false)" },
         "taggedWith": { "type": "string", "description": "Only return messages with this tag key (e.g. '$label1' for Important)" },
         "accountId": { "type": "string", "description": "Email address of the account to limit search to. Internal account IDs are not exposed in responses. Ignored if folderPath is provided." },
@@ -58,15 +57,14 @@
     }
   },
   {
-    "name": "getMessage",
-    "title": "Get Message",
-    "description": "Read the full content of an email message by its ID. Response includes threadId and a thread array listing all messages in the conversation across folders (via Gloda), if available.",
+    "name": "getThread",
+    "title": "Get Thread",
+    "description": "Read all messages in a conversation thread with full bodies. Finds messages across all folders (Inbox, Sent, etc.) via Gloda. Provide any messageId + folderPath from searchMessages results to get the entire conversation.",
     "inputSchema": {
       "type": "object",
       "properties": {
-        "messageId": { "type": "string", "description": "The message ID (short hex ID from searchMessages results)" },
-        "folderPath": { "type": "string", "description": "Folder path (e.g. 'user@example.com/Inbox')" },
-        "saveAttachments": { "type": "boolean", "description": "If true, save attachments to /tmp/thunderbird-mcp/<messageId>/ and include filePath in response (default: false)" }
+        "messageId": { "type": "string", "description": "Message ID (short hex ID from searchMessages results)" },
+        "folderPath": { "type": "string", "description": "Folder path (e.g. 'user@example.com/Inbox')" }
       },
       "required": ["messageId", "folderPath"]
     }
@@ -421,7 +419,7 @@
   {
     "name": "listFeeds",
     "title": "List Feeds",
-    "description": "List subscribed RSS/Atom feeds. Can filter by account or folder. Feed items are regular messages readable via searchMessages/getMessage.",
+    "description": "List subscribed RSS/Atom feeds. Can filter by account or folder. Feed items are regular messages readable via searchMessages/getThread.",
     "inputSchema": {
       "type": "object",
       "properties": {

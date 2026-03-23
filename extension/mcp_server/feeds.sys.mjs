@@ -5,7 +5,7 @@
  * RSS/Atom feed management tools.
  *
  * Thunderbird stores feeds as messages in special RSS account folders.
- * Existing searchMessages/getMessage tools already read feed content;
+ * Existing searchMessages/getThread tools already read feed content;
  * this module adds subscription management (list, subscribe, unsubscribe, refresh).
  */
 

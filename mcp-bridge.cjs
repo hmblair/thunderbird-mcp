@@ -23,7 +23,7 @@ const VERSION = require(path.join(__dirname, 'package.json')).version;
  */
 const TOOL_GROUPS = {
   mail: [
-    'listAccounts', 'listFolders', 'searchMessages', 'getMessage',
+    'listAccounts', 'listFolders', 'searchMessages', 'getThread',
     'deleteMessages', 'deleteMessagesBySender', 'updateMessages', 'getNewMail', 'unsubscribe', 'createDraft', 'sendDraft', 'searchContacts',
     'createFolder', 'renameFolder', 'deleteFolder', 'moveFolder',
     'emptyJunk', 'emptyTrash',
@@ -35,7 +35,7 @@ const TOOL_GROUPS = {
   feeds: [
     'listAccounts', 'createFeedAccount', 'listFeeds',
     'subscribeFeed', 'unsubscribeFeed', 'refreshFeeds',
-    'createFolder', 'listFolders', 'searchMessages', 'getMessage',
+    'createFolder', 'listFolders', 'searchMessages', 'getThread',
   ],
 };
 
