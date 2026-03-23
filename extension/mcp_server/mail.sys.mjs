@@ -5,6 +5,36 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
     mcpWarn, mcpDebug, openFolder, resolveFolder, findMessage, findTrashFolder, formatLocalJsDate, parseDate, resolveAccount, getPrimaryEmail, folderShortPath, shortId, resolveMsgHdrs,
   } = utils;
 
+  /**
+   * Parse RFC 2822 address string into { name, email } objects.
+   * Handles: "Name" <email>, Name <email>, <email>, bare email.
+   */
+  function parseAddressList(raw) {
+    if (!raw) return [];
+    const results = [];
+    const re = /(?:"([^"]*)"|\b([^<,]+?))?\s*<([^>]+)>/g;
+    let match;
+    let lastIndex = 0;
+    while ((match = re.exec(raw)) !== null) {
+      lastIndex = re.lastIndex;
+      const name = (match[1] || match[2] || "").trim();
+      results.push({ name, email: match[3].trim() });
+    }
+    // Handle bare emails not matched by the regex (no angle brackets)
+    if (results.length === 0) {
+      for (const part of raw.split(",")) {
+        const email = part.trim();
+        if (email) results.push({ name: "", email });
+      }
+    }
+    return results;
+  }
+
+  function parseAddress(raw) {
+    const list = parseAddressList(raw);
+    return list[0] || { name: "", email: raw || "" };
+  }
+
   const DEFAULT_MAX_RESULTS = 50;
   const MAX_SEARCH_RESULTS_CAP = 1000;
   const SEARCH_COLLECTION_CAP = 1000;
@@ -286,9 +316,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
               const entry = {
                 id: shortId(msgHdr.messageId),
                 subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
-                author: msgHdr.mime2DecodedAuthor || msgHdr.author,
-                recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
-                ccList: msgHdr.ccList,
+                author: parseAddress(msgHdr.mime2DecodedAuthor || msgHdr.author),
+                recipients: parseAddressList(msgHdr.mime2DecodedRecipients || msgHdr.recipients),
+                cc: parseAddressList(msgHdr.ccList),
                 date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
                 folder: folder.prettyName,
                 folderPath: folderShortPath(folder),
@@ -486,9 +516,9 @@ export function createMailHandlers({ MailServices, Services, Cc, Ci, NetUtil, Ch
         const msg = {
           id: shortId(msgHdr.messageId),
           subject: msgHdr.mime2DecodedSubject || msgHdr.subject,
-          author: msgHdr.mime2DecodedAuthor || msgHdr.author,
-          recipients: msgHdr.mime2DecodedRecipients || msgHdr.recipients,
-          ccList: msgHdr.ccList,
+          author: parseAddress(msgHdr.mime2DecodedAuthor || msgHdr.author),
+          recipients: parseAddressList(msgHdr.mime2DecodedRecipients || msgHdr.recipients),
+          cc: parseAddressList(msgHdr.ccList),
           date: msgHdr.date ? formatLocalJsDate(new Date(msgHdr.date / 1000)) : null,
           folderPath: folderShortPath(msgHdr.folder),
           read: msgHdr.isRead,
