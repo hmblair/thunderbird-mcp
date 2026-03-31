@@ -25,6 +25,10 @@
     "README.md",
     "LICENSE"
   ],
+  "scripts": {
+    "test": "node test/validate-tools.cjs && node test/smoke.cjs",
+    "prepublishOnly": "node test/validate-tools.cjs && node test/smoke.cjs"
+  },
   "engines": {
     "node": ">=18.0.0"
   }

@@ -12,8 +12,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const THUNDERBIRD_PORT = 8765;
-const REQUEST_TIMEOUT = 30000;
+const portArg = process.argv.find(a => a.startsWith('--port='));
+const timeoutArg = process.argv.find(a => a.startsWith('--timeout='));
+const THUNDERBIRD_PORT = portArg ? parseInt(portArg.slice('--port='.length), 10) : 8765;
+const REQUEST_TIMEOUT = timeoutArg ? parseInt(timeoutArg.slice('--timeout='.length), 10) : 120000;
 const TOKEN_PATH = path.join(os.homedir(), '.thunderbird-mcp-token');
 const VERSION = require(path.join(__dirname, 'package.json')).version;
 
@@ -65,6 +67,22 @@ if (toolsArg) {
 } else {
   TOOLS = ALL_TOOLS;
 }
+
+// Strip internal-only parameters (e.g. accountTypes) from tool schemas
+// so LLM clients never see or attempt to use them.
+const INTERNAL_PARAMS = new Set(['accountTypes']);
+const TOOLS_PUBLIC = TOOLS.map(t => {
+  const props = t.inputSchema?.properties;
+  if (!props) return t;
+  const hasInternal = Object.keys(props).some(k => INTERNAL_PARAMS.has(k));
+  if (!hasInternal) return t;
+  const filtered = { ...props };
+  for (const k of INTERNAL_PARAMS) delete filtered[k];
+  return {
+    ...t,
+    inputSchema: { ...t.inputSchema, properties: filtered }
+  };
+});
 
 const TOOL_NAME_SET = new Set(TOOLS.map(t => t.name));
 
@@ -173,7 +191,7 @@ async function handleMessage(line) {
       return {
         jsonrpc: '2.0',
         id: message.id,
-        result: { tools: TOOLS }
+        result: { tools: TOOLS_PUBLIC }
       };
 
     case 'resources/list':

@@ -8,7 +8,11 @@ const bridgePath = path.resolve(__dirname, "..", "mcp-bridge.cjs");
 const home = process.env.HOME || process.env.USERPROFILE;
 
 const CLAUDE_CONFIG = path.join(home, ".mcp.json");
-const CLAUDE_DESKTOP_CONFIG = path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
+const CLAUDE_DESKTOP_CONFIG = process.platform === "win32"
+  ? path.join(home, "AppData", "Roaming", "Claude", "claude_desktop_config.json")
+  : process.platform === "darwin"
+    ? path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
+    : path.join(home, ".config", "Claude", "claude_desktop_config.json");
 const OPENCODE_CONFIG = path.join(home, ".config", "opencode", "opencode.json");
 
 const TOOL_GROUPS = ["mail", "calendar", "feeds"];

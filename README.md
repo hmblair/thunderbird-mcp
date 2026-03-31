@@ -27,8 +27,8 @@ The Thunderbird extension embeds a local HTTP server. The Node.js bridge transla
 | `listAccounts` | List all email accounts and their identities |
 | `listFolders` | Browse folder tree with message counts — filter by account or subtree |
 | `searchMessages` | Search messages by query, sender, recipient, subject, date range, folder, account, tags, attachments, read/flagged status, or just count them |
-| `getMessage` | Read full email content with optional attachment saving to disk |
-| `updateMessage` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
+| `getThread` | Read all messages in a conversation thread with full bodies — finds messages across folders via Gloda |
+| `updateMessages` | Mark read/unread, flag/unflag, tag, move, copy, or trash (single or bulk) |
 | `getNewMail` | Check for new mail from the server — one account or all at once |
 | `deleteMessages` | Delete messages from a folder |
 | `deleteMessagesBySender` | Delete all messages from one or more senders across all folders |
@@ -121,7 +121,7 @@ Thunderbird's mail APIs are fire-and-forget — they do not return success or fa
 
 ## Setup
 
-Requires [Thunderbird](https://www.thunderbird.net/) 115 or later.
+Requires [Thunderbird](https://www.thunderbird.net/) 102 or later.
 
 ### 1. Install the extension
 
@@ -150,6 +150,16 @@ To remove the config entries later:
 ```bash
 make uninstall
 ```
+
+### Bridge options
+
+The bridge accepts optional flags:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--tools=group1,group2` | all tools | Expose only specific tool groups (`mail`, `calendar`, `feeds`) |
+| `--port=N` | `8765` | Thunderbird HTTP server port (must match extension config) |
+| `--timeout=N` | `120000` | Request timeout in milliseconds |
 
 ### 3. Headless mode (optional)
 
