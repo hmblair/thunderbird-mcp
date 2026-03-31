@@ -1,7 +1,7 @@
 // tasks.sys.mjs — Task (todo) tools: list, create, update, delete
 
 export function createTaskHandlers({ cal, CalTodo, utils }) {
-  const { mcpWarn, mcpDebug, parseDate, formatCalDateTime, findWritableCalendar } = utils;
+  const { mcpWarn, mcpDebug, parseDate, formatCalDateTime, findWritableCalendar, resolveCalendar, calendarPath, shortId } = utils;
 
   async function getCalendarTodos(calendar, rangeStart, rangeEnd) {
     const FILTER_ALL = 0xFFFF;
@@ -21,13 +21,22 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
     );
   }
 
-  async function findTodo(taskId, calendarId) {
-    const calendar = cal.manager.getCalendars().find(c => c.id === calendarId);
-    if (!calendar) {
-      return { error: `Calendar not found: ${calendarId}` };
+  function resolveTaskId(input, items) {
+    if (!input || typeof input !== "string") return null;
+    const direct = items.find(i => i.id === input);
+    if (direct) return direct;
+    for (const item of items) {
+      if (shortId(item.id) === input) return item;
     }
+    return null;
+  }
+
+  async function findTodo(taskId, calendarId) {
+    const resolved = resolveCalendar(calendarId);
+    if (resolved.error) return resolved;
+    const { calendar } = resolved;
     const items = await getCalendarTodos(calendar, null, null);
-    const item = items.find(i => i.id === taskId);
+    const item = resolveTaskId(taskId, items);
     if (!item) {
       return { error: `Task not found: ${taskId}` };
     }
@@ -39,9 +48,8 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
     const dueDate = formatCalDateTime(item.dueDate);
     const completedDate = formatCalDateTime(item.completedDate);
     return {
-      id: item.id,
-      calendarId: calendar.id,
-      calendarName: calendar.name,
+      id: shortId(item.id),
+      calendar: calendarPath(calendar),
       title: item.title || "",
       entryDate,
       dueDate,
@@ -63,11 +71,9 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       const calendars = cal.manager.getCalendars();
       let targets = calendars;
       if (calendarId) {
-        const found = calendars.find(c => c.id === calendarId);
-        if (!found) {
-          return { error: `Calendar not found: ${calendarId}` };
-        }
-        targets = [found];
+        const resolved = resolveCalendar(calendarId);
+        if (resolved.error) return resolved;
+        targets = [resolved.calendar];
       }
 
       const limit = Math.min(maxResults || 100, 500);
@@ -144,7 +150,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
 
       todo.calendar = targetCalendar;
       await targetCalendar.addItem(todo);
-      return { message: `Requested creation of task "${title}" on calendar "${targetCalendar.name}"`, calendarId: targetCalendar.id, calendarName: targetCalendar.name };
+      return { message: `Requested creation of task "${title}" on calendar "${calendarPath(targetCalendar)}"`, calendar: calendarPath(targetCalendar) };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -162,7 +168,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       const { item: oldItem, calendar } = found;
 
       if (calendar.readOnly) {
-        return { error: `Calendar is read-only: ${calendar.name}` };
+        return { error: `Calendar is read-only: ${calendarPath(calendar)}` };
       }
 
       const newItem = oldItem.clone();
@@ -222,7 +228,7 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       }
 
       await calendar.modifyItem(newItem, oldItem);
-      return { message: `Requested update of task`, updated: changes, calendarId: calendar.id, calendarName: calendar.name };
+      return { message: `Requested update of task`, updated: changes, calendar: calendarPath(calendar) };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -240,11 +246,11 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       const { item, calendar } = found;
 
       if (calendar.readOnly) {
-        return { error: `Calendar is read-only: ${calendar.name}` };
+        return { error: `Calendar is read-only: ${calendarPath(calendar)}` };
       }
 
       await calendar.deleteItem(item);
-      return { message: `Requested deletion of task`, deleted: taskId, calendarId: calendar.id, calendarName: calendar.name };
+      return { message: `Requested deletion of task`, deleted: taskId, calendar: calendarPath(calendar) };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -260,24 +266,23 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       if (!taskId || !calendarId || !destinationCalendarId) {
         return { error: "taskId, calendarId, and destinationCalendarId are all required" };
       }
-      if (calendarId === destinationCalendarId) {
-        return { error: "Source and destination calendars are the same" };
-      }
-
       const found = await findTodo(taskId, calendarId);
       if (found.error) return found;
       const { item, calendar: srcCalendar } = found;
 
       if (srcCalendar.readOnly) {
-        return { error: `Source calendar is read-only: ${srcCalendar.name}` };
+        return { error: `Source calendar is read-only: ${calendarPath(srcCalendar)}` };
       }
 
-      const destCalendar = cal.manager.getCalendars().find(c => c.id === destinationCalendarId);
-      if (!destCalendar) {
-        return { error: `Destination calendar not found: ${destinationCalendarId}` };
+      const destResolved = resolveCalendar(destinationCalendarId);
+      if (destResolved.error) return { error: `Destination calendar: ${destResolved.error}` };
+      const destCalendar = destResolved.calendar;
+
+      if (srcCalendar.id === destCalendar.id) {
+        return { error: "Source and destination calendars are the same" };
       }
       if (destCalendar.readOnly) {
-        return { error: `Destination calendar is read-only: ${destCalendar.name}` };
+        return { error: `Destination calendar is read-only: ${calendarPath(destCalendar)}` };
       }
 
       const newItem = item.clone();
@@ -286,12 +291,10 @@ export function createTaskHandlers({ cal, CalTodo, utils }) {
       await srcCalendar.deleteItem(item);
 
       return {
-        message: `Moved task "${item.title}" from "${srcCalendar.name}" to "${destCalendar.name}"`,
+        message: `Moved task "${item.title}" from "${calendarPath(srcCalendar)}" to "${calendarPath(destCalendar)}"`,
         taskId,
-        fromCalendarId: srcCalendar.id,
-        fromCalendarName: srcCalendar.name,
-        toCalendarId: destCalendar.id,
-        toCalendarName: destCalendar.name,
+        from: calendarPath(srcCalendar),
+        to: calendarPath(destCalendar),
       };
     } catch (e) {
       return { error: e.toString() };

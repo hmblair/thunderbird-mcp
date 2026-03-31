@@ -1,7 +1,7 @@
 // calendar.sys.mjs — Calendar tools: list, create, update, delete events
 
 export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
-  const { mcpWarn, mcpDebug, parseDate, formatCalDateTime, findWritableCalendar } = utils;
+  const { mcpWarn, mcpDebug, parseDate, formatCalDateTime, findWritableCalendar, resolveCalendar, calendarPath, shortId } = utils;
 
   function listCalendars() {
     if (!cal) {
@@ -9,8 +9,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
     }
     try {
       return cal.manager.getCalendars().map(c => ({
-        id: c.id,
-        name: c.name,
+        calendar: calendarPath(c),
         type: c.type,
         readOnly: c.readOnly
       }));
@@ -32,15 +31,26 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
     return items;
   }
 
-  async function findEvent(eventId, calendarId) {
-    const calendar = cal.manager.getCalendars().find(c => c.id === calendarId);
-    if (!calendar) {
-      return { error: `Calendar not found: ${calendarId}` };
+  function resolveEventId(input, items) {
+    if (!input || typeof input !== "string") return null;
+    // Try direct match first
+    const direct = items.find(i => i.id === input);
+    if (direct) return direct;
+    // Try short ID match
+    for (const item of items) {
+      if (shortId(item.id) === input) return item;
     }
+    return null;
+  }
+
+  async function findEvent(eventId, calendarId) {
+    const resolved = resolveCalendar(calendarId);
+    if (resolved.error) return resolved;
+    const { calendar } = resolved;
     const rangeStart = cal.dtz.jsDateToDateTime(new Date(0), cal.dtz.defaultTimezone);
     const rangeEnd = cal.dtz.jsDateToDateTime(new Date(2100, 0, 1), cal.dtz.defaultTimezone);
     const items = await getCalendarItems(calendar, rangeStart, rangeEnd);
-    const item = items.find(i => i.id === eventId);
+    const item = resolveEventId(eventId, items);
     if (!item) {
       return { error: `Event not found: ${eventId}` };
     }
@@ -147,7 +157,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
 
       event.calendar = targetCalendar;
       await targetCalendar.addItem(event);
-      return { message: `Requested creation of event "${title}" on calendar "${targetCalendar.name}"`, calendarId: targetCalendar.id, calendarName: targetCalendar.name };
+      return { message: `Requested creation of event "${title}" on calendar "${calendarPath(targetCalendar)}"`, calendar: calendarPath(targetCalendar) };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -162,11 +172,9 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       const calendars = cal.manager.getCalendars();
       let targets = calendars;
       if (calendarId) {
-        const found = calendars.find(c => c.id === calendarId);
-        if (!found) {
-          return { error: `Calendar not found: ${calendarId}` };
-        }
-        targets = [found];
+        const resolved = resolveCalendar(calendarId);
+        if (resolved.error) return resolved;
+        targets = [resolved.calendar];
       }
 
       const startJs = startDate ? parseDate(startDate) : new Date();
@@ -195,9 +203,8 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
           end = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00:00`;
         }
         const result = {
-          id: item.id,
-          calendarId: calendar.id,
-          calendarName: calendar.name,
+          id: shortId(item.id),
+          calendar: calendarPath(calendar),
           title: item.title || "",
           startDate: start,
           endDate: end,
@@ -277,7 +284,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       const { item: oldItem, calendar } = found;
 
       if (calendar.readOnly) {
-        return { error: `Calendar is read-only: ${calendar.name}` };
+        return { error: `Calendar is read-only: ${calendarPath(calendar)}` };
       }
       if (!oldItem) {
         return { error: `Event not found: ${eventId}` };
@@ -360,7 +367,7 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       }
 
       await calendar.modifyItem(newItem, oldItem);
-      return { message: `Requested update of event`, updated: changes, calendarId: calendar.id, calendarName: calendar.name };
+      return { message: `Requested update of event`, updated: changes, calendar: calendarPath(calendar) };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -385,11 +392,11 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       const { item, calendar } = found;
 
       if (calendar.readOnly) {
-        return { error: `Calendar is read-only: ${calendar.name}` };
+        return { error: `Calendar is read-only: ${calendarPath(calendar)}` };
       }
 
       await calendar.deleteItem(item);
-      return { message: `Requested deletion of event`, deleted: eventId, calendarId: calendar.id, calendarName: calendar.name };
+      return { message: `Requested deletion of event`, deleted: eventId, calendar: calendarPath(calendar) };
     } catch (e) {
       return { error: e.toString() };
     }
@@ -405,24 +412,23 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       if (!eventId || !calendarId || !destinationCalendarId) {
         return { error: "eventId, calendarId, and destinationCalendarId are all required" };
       }
-      if (calendarId === destinationCalendarId) {
-        return { error: "Source and destination calendars are the same" };
-      }
-
       const found = await findEvent(eventId, calendarId);
       if (found.error) return found;
       const { item, calendar: srcCalendar } = found;
 
       if (srcCalendar.readOnly) {
-        return { error: `Source calendar is read-only: ${srcCalendar.name}` };
+        return { error: `Source calendar is read-only: ${calendarPath(srcCalendar)}` };
       }
 
-      const destCalendar = cal.manager.getCalendars().find(c => c.id === destinationCalendarId);
-      if (!destCalendar) {
-        return { error: `Destination calendar not found: ${destinationCalendarId}` };
+      const destResolved = resolveCalendar(destinationCalendarId);
+      if (destResolved.error) return { error: `Destination calendar: ${destResolved.error}` };
+      const destCalendar = destResolved.calendar;
+
+      if (srcCalendar.id === destCalendar.id) {
+        return { error: "Source and destination calendars are the same" };
       }
       if (destCalendar.readOnly) {
-        return { error: `Destination calendar is read-only: ${destCalendar.name}` };
+        return { error: `Destination calendar is read-only: ${calendarPath(destCalendar)}` };
       }
 
       const newItem = item.clone();
@@ -431,12 +437,10 @@ export function createCalendarHandlers({ cal, CalEvent, ChromeUtils, utils }) {
       await srcCalendar.deleteItem(item);
 
       return {
-        message: `Moved event "${item.title}" from "${srcCalendar.name}" to "${destCalendar.name}"`,
+        message: `Moved event "${item.title}" from "${calendarPath(srcCalendar)}" to "${calendarPath(destCalendar)}"`,
         eventId,
-        fromCalendarId: srcCalendar.id,
-        fromCalendarName: srcCalendar.name,
-        toCalendarId: destCalendar.id,
-        toCalendarName: destCalendar.name,
+        from: calendarPath(srcCalendar),
+        to: calendarPath(destCalendar),
       };
     } catch (e) {
       return { error: e.toString() };

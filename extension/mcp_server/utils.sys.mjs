@@ -315,16 +315,72 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     return { found, notFound };
   }
 
+  function getCalendarEmail(calendar) {
+    if (!calendar || !MailServices) return null;
+    const identityKey = calendar.getProperty("imip.identity.key");
+    if (!identityKey) return null;
+    for (const account of MailServices.accounts.accounts) {
+      for (const identity of account.identities) {
+        if (identity.key === identityKey) return identity.email || null;
+      }
+    }
+    return null;
+  }
+
+  function calendarPath(calendar) {
+    if (!calendar) return null;
+    const email = getCalendarEmail(calendar);
+    const prefix = email || "Local";
+    return `${prefix}/${calendar.name}`;
+  }
+
+  function resolveCalendar(input) {
+    if (!cal) return { error: "Calendar not available" };
+    if (!input || typeof input !== "string") return { error: "Calendar identifier is required" };
+
+    const calendars = cal.manager.getCalendars();
+
+    // Try raw ID match first (backwards compat / internal use)
+    const byId = calendars.find(c => c.id === input);
+    if (byId) return { calendar: byId };
+
+    const slashIdx = input.indexOf("/");
+    if (slashIdx >= 1) {
+      const emailPart = input.substring(0, slashIdx).toLowerCase();
+      const namePart = input.substring(slashIdx + 1).toLowerCase();
+
+      if (emailPart === "local") {
+        const match = calendars.find(c => !getCalendarEmail(c) && (c.name || "").toLowerCase() === namePart);
+        if (match) return { calendar: match };
+        return { error: `Calendar not found: ${input}` };
+      }
+
+      const matches = calendars.filter(c => {
+        const cEmail = getCalendarEmail(c);
+        return cEmail && cEmail.toLowerCase() === emailPart && (c.name || "").toLowerCase() === namePart;
+      });
+      if (matches.length === 1) return { calendar: matches[0] };
+      if (matches.length > 1) return { error: `Ambiguous calendar: ${input} (${matches.length} matches)` };
+      return { error: `Calendar not found: ${input}` };
+    }
+
+    // No slash — match by name alone
+    const lower = input.toLowerCase();
+    const byName = calendars.filter(c => (c.name || "").toLowerCase() === lower);
+    if (byName.length === 1) return { calendar: byName[0] };
+    if (byName.length > 1) return { error: `Ambiguous calendar name "${input}". Use email/name format (e.g. "user@example.com/${input}") to disambiguate.` };
+    return { error: `Calendar not found: ${input}` };
+  }
+
   function findWritableCalendar(calendarId) {
     if (!cal) return { error: "Calendar not available" };
-    const calendars = cal.manager.getCalendars();
     if (calendarId) {
-      const target = calendars.find(c => c.id === calendarId);
-      if (!target) return { error: `Calendar not found: ${calendarId}` };
-      if (target.readOnly) return { error: `Calendar is read-only: ${target.name}` };
-      return { calendar: target };
+      const resolved = resolveCalendar(calendarId);
+      if (resolved.error) return resolved;
+      if (resolved.calendar.readOnly) return { error: `Calendar is read-only: ${calendarPath(resolved.calendar)}` };
+      return resolved;
     }
-    const target = calendars.find(c => !c.readOnly);
+    const target = cal.manager.getCalendars().find(c => !c.readOnly);
     if (!target) return { error: "No writable calendar found" };
     return { calendar: target };
   }
@@ -389,6 +445,9 @@ export function createUtils({ MailServices, Services, Cc, Ci, cal }) {
     shortId,
     lookupMsgHdr,
     resolveMsgHdrs,
+    getCalendarEmail,
+    calendarPath,
+    resolveCalendar,
     findWritableCalendar,
     resolveAccounts,
     findMessage,
